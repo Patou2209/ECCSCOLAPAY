@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Percepteur — ScolaPay</title>
+<meta name="theme-color" content="#0B4AAE">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Icônes : Phosphor (nouveau design). Font Awesome reste chargé pour les éléments générés par admin.js -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Le bleu de Tailwind est remplacé par le bleu ScolaPay : tous les boutons "blue-*"
+  // (y compris ceux générés par admin.js) prennent automatiquement la couleur de la marque.
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Figtree', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'] },
+        colors: {
+          blue: { 50:'#EAF1FC', 100:'#D6E4F8', 200:'#B3CCF1', 300:'#86ABE6', 400:'#4C82D6', 500:'#1F63C4', 600:'#0B4AAE', 700:'#083A8A', 800:'#062C6B', 900:'#041F4D' },
+          brand:  { DEFAULT: '#0B4AAE', dark: '#083A8A', deep: '#062C6B', soft: '#EAF1FC' },
+          accent: { DEFAULT: '#F96A0A', dark: '#D95A04', soft: '#FFF0E5' },
+          ink:    { DEFAULT: '#0F1B33', soft: '#44506A' }
+        }
+      }
+    }
+  }
+</script>
+<link href="/static/css/style.css?v=10" rel="stylesheet">
+
+<style>
+  body { font-family: 'Figtree', system-ui, sans-serif; color: #0F1B33; background: #F6F8FB; -webkit-font-smoothing: antialiased; overflow-x: clip; }
+  h1, h2, h3, h4 { font-family: 'Figtree', system-ui, sans-serif; letter-spacing: -0.02em; }
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, .nav-link:focus-visible { outline: 3px solid rgba(249,106,10,.55); outline-offset: 2px; }
+
+  /* ---------- Barre latérale ---------- */
+  aside.app-sidebar {
+    display: flex !important; flex-direction: column;
+    position: fixed !important; top: 0; bottom: 0; left: 0; z-index: 60;
+    width: 16.5rem !important; background: #fff !important; color: #0F1B33 !important;
+    border-right: 1px solid #E2E8F0; overflow-y: auto;
+    transition: transform .25s ease;
+  }
+  aside.app-sidebar .side-group { margin: 1.1rem 0 .35rem; padding: 0 .75rem; font-size: .75rem; font-weight: 700; color: #8592A8; }
+  aside.app-sidebar .nav-link {
+    position: relative; display: flex; align-items: center; gap: .75rem;
+    padding: .6rem .75rem; border-radius: .65rem; cursor: pointer;
+    font-size: .9rem; font-weight: 500; color: #44506A; background: transparent;
+    transition: background-color .15s, color .15s;
+  }
+  aside.app-sidebar .nav-link i { font-size: 1.25rem; width: 1.25rem; text-align: center; color: #8592A8; transition: color .15s; }
+  aside.app-sidebar .nav-link:hover { background: #F1F5F9; color: #0F1B33; }
+  aside.app-sidebar .nav-link:hover i { color: #0B4AAE; }
+  aside.app-sidebar .nav-link.active { background: #EAF1FC; color: #0B4AAE; font-weight: 700; }
+  aside.app-sidebar .nav-link.active i { color: #0B4AAE; }
+  aside.app-sidebar .nav-link.active::before { content: ""; position: absolute; left: -.75rem; top: .4rem; bottom: .4rem; width: 3px; border-radius: 0 3px 3px 0; background: #F96A0A; }
+  aside.app-sidebar .nav-link.logout:hover { background: #FEF2F2; color: #B91C1C; }
+  aside.app-sidebar .nav-link.logout:hover i { color: #B91C1C; }
+
+  main.app-main { margin-left: 16.5rem !important; padding: 2rem 2.5rem 3rem !important; min-width: 0; }
+
+  #mobile-bar { display: none; }
+  #sidebar-overlay { display: none; }
+  @media (max-width: 1023px) {
+    aside.app-sidebar { transform: translateX(-100%); width: min(17rem, 86vw) !important; box-shadow: none; }
+    aside.app-sidebar.open { transform: translateX(0); box-shadow: 0 20px 60px rgba(15,27,51,.3); }
+    main.app-main { margin-left: 0 !important; padding: 4.75rem 1rem 2.5rem !important; }
+    #mobile-bar { display: flex; position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: 3.5rem; align-items: center; gap: .75rem; padding: 0 .75rem; background: rgba(255,255,255,.92); backdrop-filter: blur(8px); border-bottom: 1px solid #E2E8F0; }
+    #sidebar-overlay.show { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(15,27,51,.45); }
+  }
+  @media print {
+    aside.app-sidebar, #mobile-bar, #sidebar-overlay { display: none !important; }
+    main.app-main { margin-left: 0 !important; padding: 0 !important; }
+  }
+
+  /* ---------- Composants ---------- */
+  .page-head { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; }
+  @media (min-width: 768px) { .page-head { flex-direction: row; align-items: center; justify-content: space-between; } }
+  .page-title { font-size: 1.6rem; font-weight: 800; line-height: 1.2; color: #0F1B33; }
+  .page-sub { margin-top: .25rem; font-size: .9rem; color: #44506A; max-width: 44rem; line-height: 1.5; }
+  .toolbar, .filters { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .filters { gap: .75rem; align-items: flex-end; }
+  .lbl { display: block; margin-bottom: .3rem; font-size: .8rem; font-weight: 600; color: #44506A; }
+
+  .field { padding: .55rem .8rem; border: 1px solid #CBD5E1; border-radius: .65rem; background: #fff; font-size: .9rem; color: #0F1B33; transition: border-color .15s, box-shadow .15s; }
+  .field:focus { outline: none; border-color: #0B4AAE; box-shadow: 0 0 0 3px rgba(11,74,174,.13); }
+  .field::placeholder { color: #94A3B8; }
+  .field-md { min-width: 11rem; }
+
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; padding: .55rem .95rem; border-radius: .65rem; border: 1px solid transparent; font-size: .875rem; font-weight: 600; line-height: 1.25; white-space: nowrap; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s; }
+  .btn i { font-size: 1.1rem; }
+  .btn-primary { background: #0B4AAE; color: #fff; } .btn-primary:hover { background: #083A8A; }
+  .btn-dark { background: #0F1B33; color: #fff; } .btn-dark:hover { background: #1c2b4a; }
+  .btn-light { background: #fff; color: #0F1B33; border-color: #CBD5E1; } .btn-light:hover { border-color: #0B4AAE; color: #0B4AAE; }
+  .btn-excel { background: #fff; color: #0F1B33; border-color: #CBD5E1; } .btn-excel i { color: #059669; } .btn-excel:hover { background: #ECFDF5; border-color: #059669; }
+  .btn-pdf { background: #fff; color: #0F1B33; border-color: #CBD5E1; } .btn-pdf i { color: #DC2626; } .btn-pdf:hover { background: #FEF2F2; border-color: #DC2626; }
+  .link-back { display: inline-flex; align-items: center; gap: .4rem; margin-bottom: .6rem; font-size: .875rem; font-weight: 600; color: #0B4AAE; cursor: pointer; }
+  .link-back:hover { text-decoration: underline; }
+
+  .section-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 1rem; box-shadow: none; }
+  .card-title { display: flex; align-items: center; gap: .65rem; font-weight: 700; font-size: 1.05rem; margin-bottom: 1.1rem; }
+  .card-title .ico { width: 2.25rem; height: 2.25rem; border-radius: .6rem; display: inline-flex; align-items: center; justify-content: center; font-size: 1.25rem; }
+  .notice { display: flex; gap: .75rem; background: #EAF1FC; border: 1px solid #CFE0F7; color: #062C6B; border-radius: .85rem; padding: .85rem 1rem; font-size: .85rem; line-height: 1.55; margin-bottom: 1rem; }
+  .notice > i { font-size: 1.3rem; color: #0B4AAE; flex-shrink: 0; margin-top: .05rem; }
+
+  .data-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  .data-table thead th { background: #F8FAFC; color: #44506A; font-size: .8rem; font-weight: 700; text-align: left; padding: .8rem 1rem; border-bottom: 1px solid #E2E8F0; white-space: nowrap; }
+  .data-table tbody td { padding: .8rem 1rem; border-bottom: 1px solid #EEF2F6; vertical-align: middle; }
+  .data-table tbody tr:last-child td { border-bottom: 0; }
+  .data-table tbody tr:hover td { background: #F8FAFC; }
+  .data-table thead.cashbook-head th { background: #0F1B33; color: #fff; border-bottom: 0; }
+  .data-table thead.cashbook-head th.text-right { text-align: right; }
+  .data-table thead.cashbook-head th i { opacity: .85; }
+
+
+  /* Recherche rapide d'élève (liste déroulante) */
+  .student-search-wrap { position: relative; }
+  .student-search-results { position: absolute; top: 100%; left: 0; right: 0; z-index: 30; margin-top: .35rem; max-height: 20rem; overflow-y: auto; background: #fff; border: 1px solid #E2E8F0; border-radius: .85rem; box-shadow: 0 18px 40px -16px rgba(15,27,51,.25); }
+  .student-search-results > * { padding: .65rem .9rem; cursor: pointer; border-bottom: 1px solid #F1F5F9; }
+  .student-search-results > *:last-child { border-bottom: 0; }
+  .student-search-results > *:hover { background: #F8FAFC; }
+
+  /* Bandeau d'usurpation (affiché par le script) */
+  #impersonation-banner { position: relative; z-index: 70; }
+  @media (min-width: 1024px) { #impersonation-banner:not(.hidden) { margin-left: 16.5rem; } }
+  @media (max-width: 1023px) { #impersonation-banner:not(.hidden) { margin-top: 3.5rem; } }
+
+  @media (max-width: 640px) {
+    .page-title { font-size: 1.35rem; }
+    .filters > div, .filters > .btn { flex: 1 1 100%; }
+    .filters .field { width: 100%; }
+    .filters .btn { width: 100%; }
+    .toolbar .btn { flex: 1 1 auto; }
+  }
+</style>
+</head>
+
+<body>
+<div id="toast-container"></div>
+
+<!-- Barre mobile -->
+<div id="mobile-bar">
+  <button id="sidebar-toggle" type="button" class="w-10 h-10 flex items-center justify-center rounded-lg text-ink hover:bg-slate-100" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="app-sidebar">
+    <i class="ph ph-list text-2xl"></i>
+  </button>
+  <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="ScolaPay" class="js-logo h-6 w-auto" width="112" height="24">
+</div>
+<div id="sidebar-overlay"></div>
+
+<div class="min-h-screen">
+  <aside id="app-sidebar" class="app-sidebar">
+    <div class="px-5 pt-5 pb-4 border-b border-slate-200">
+      <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="ScolaPay" class="js-logo h-7 w-auto" width="130" height="28">
+      <div class="mt-4 flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+        <span class="w-9 h-9 rounded-lg bg-accent-soft text-accent flex items-center justify-center shrink-0"><i class="ph-fill ph-hand-coins text-xl"></i></span>
+        <div class="min-w-0">
+          <p class="font-bold text-sm truncate">Percepteur</p>
+          <p id="school-name-label" class="text-xs text-ink-soft truncate">École</p>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 px-3 pb-3">
+      <p class="side-group">Finances</p>
+      <div class="nav-link active" data-tab="perception" role="button" tabindex="0"><i class="ph ph-hand-coins"></i>Perception journalière</div>
+      <div class="nav-link" data-tab="rapport" role="button" tabindex="0"><i class="ph ph-clipboard-text"></i>Mon rapport journalier</div>
+      <div class="nav-link" data-tab="debts" role="button" tabindex="0"><i class="ph ph-warning-circle"></i>Listes de dettes</div>
+    </nav>
+
+    <div class="p-3 border-t border-slate-200">
+      <div id="user-info" class="text-xs text-ink-soft mb-2 px-3 truncate"></div>
+      <div class="nav-link logout" onclick="doLogout()" role="button" tabindex="0"><i class="ph ph-sign-out"></i>Déconnexion</div>
+    </div>
+  </aside>
+
+  <main class="app-main">
+
+    <!-- PERCEPTION : vue 1 = cartes par classe -->
+    <section id="tab-perception">
+      <div id="perception-classes-view">
+        <div class="page-head">
+          <div><h1 class="page-title">Registre de perception journalière</h1><p class="page-sub">Sélectionnez une de vos classes pour enregistrer les paiements</p></div>
+        </div>
+        <div class="section-card p-5 mb-4">
+          <label class="lbl"><i class="ph ph-magnifying-glass mr-1 text-brand align-middle text-base"></i>Recherche rapide d'un élève (toutes vos classes)</label>
+          <div class="student-search-wrap">
+            <input type="text" id="student-search-input" placeholder="Tapez le nom, post-nom ou matricule d'un élève…" class="field w-full" autocomplete="off">
+            <div id="student-search-results" class="student-search-results hidden"></div>
+          </div>
+        </div>
+        <div class="section-card p-5 mb-6">
+          <div class="filters">
+            <div><label class="lbl">Trimestre</label><select id="perc-summary-trimester" class="field field-md"></select></div>
+            <div><label class="lbl">Jour</label><input type="date" id="perc-summary-date" class="field"></div>
+            <button onclick="loadPerceptionClasses()" class="btn btn-primary"><i class="ph-bold ph-magnifying-glass"></i>Afficher</button>
+            <button onclick="printAllMyClassesReceipts()" class="btn btn-dark"><i class="ph ph-printer"></i>Imprimer les reçus de toutes mes classes</button>
+          </div>
+        </div>
+        <div id="perception-classes-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      </div>
+
+      <!-- vue 2 = détail d'une classe -->
+      <div id="perception-detail-view" class="hidden">
+        <div class="page-head">
+          <div>
+            <button onclick="closePerceptionDetail()" class="link-back"><i class="ph-bold ph-arrow-left"></i>Retour aux classes</button>
+            <h1 id="perception-detail-title" class="page-title">Classe</h1>
+            <p class="page-sub">Registre de perception journalière</p>
+          </div>
+        </div>
+        <div class="section-card p-5 mb-6">
+          <div class="filters">
+            <div><label class="lbl">Trimestre</label><select id="perc-trimester" class="field field-md"></select></div>
+            <div><label class="lbl">Jour</label><input type="date" id="perc-date" class="field"></div>
+            <button onclick="loadRegistre()" class="btn btn-primary"><i class="ph-bold ph-magnifying-glass"></i>Afficher</button>
+            <button onclick="printAllReceipts()" class="btn btn-dark"><i class="ph ph-printer"></i>Imprimer les reçus (période)</button>
+            <button onclick="exportRegistreExcel()" class="btn btn-excel"><i class="ph ph-file-xls"></i>Excel</button>
+            <button onclick="exportRegistrePdf()" class="btn btn-pdf"><i class="ph ph-file-pdf"></i>PDF</button>
+          </div>
+        </div>
+        <div id="registre-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4"></div>
+        <div class="section-card overflow-x-auto">
+          <table class="data-table">
+            <thead><tr><th>N°</th><th>Nom et Post-nom</th><th>Catégorie</th><th>Montant du jour</th><th>Reçu</th><th>Action</th></tr></thead>
+            <tbody id="registre-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- MON RAPPORT JOURNALIER : les perceptions du percepteur connecté -->
+    <section id="tab-rapport" class="hidden">
+      <div class="page-head">
+        <div><h1 class="page-title">Mon rapport journalier</h1><p class="page-sub">Toutes vos perceptions du jour, groupées par classe</p></div>
+        <div class="toolbar">
+          <button onclick="printMonRapport()" class="btn btn-dark"><i class="ph ph-printer"></i>Imprimer le rapport</button>
+          <button onclick="printMesRecusPeriode()" class="btn btn-primary"><i class="ph ph-receipt"></i>Imprimer les reçus (période)</button>
+        </div>
+      </div>
+      <div class="section-card p-5 mb-6">
+        <div class="filters">
+          <div><label class="lbl">Date</label><input type="date" id="mr-date" class="field"></div>
+          <div><label class="lbl">Classe</label><select id="mr-class" class="field field-md"><option value="">Toutes mes classes</option></select></div>
+          <button onclick="loadMonRapport()" class="btn btn-primary"><i class="ph-bold ph-magnifying-glass"></i>Afficher</button>
+        </div>
+      </div>
+      <div id="mr-summary" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4"></div>
+      <div id="mr-content"></div>
+    </section>
+
+    <!-- DEBTS : vue 1 = cartes par classe -->
+    <section id="tab-debts" class="hidden">
+      <div id="debts-classes-view">
+        <div class="page-head">
+          <div><h1 class="page-title">Listes des dettes</h1><p class="page-sub">Sélectionnez une de vos classes pour voir ses élèves endettés</p></div>
+        </div>
+        <div class="section-card p-5 mb-6">
+          <div class="filters">
+            <div><label class="lbl">Trimestre</label><select id="debt-summary-trimester" class="field field-md"></select></div>
+            <button onclick="loadDebtsClasses()" class="btn btn-primary"><i class="ph-bold ph-magnifying-glass"></i>Afficher</button>
+          </div>
+        </div>
+        <div id="debts-classes-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      </div>
+
+      <!-- vue 2 = détail des dettes d'une classe -->
+      <div id="debts-detail-view" class="hidden">
+        <div class="page-head section-header-flex">
+          <div>
+            <button onclick="closeDebtsDetail()" class="link-back"><i class="ph-bold ph-arrow-left"></i>Retour aux classes</button>
+            <h1 id="debts-detail-title" class="page-title">Classe</h1>
+            <p class="page-sub">Élèves n'ayant pas soldé leurs frais</p>
+          </div>
+          <div class="toolbar">
+            <button onclick="exportDebtsExcel()" class="btn btn-excel"><i class="ph ph-file-xls"></i>Excel</button>
+            <button onclick="exportDebtsPdf()" class="btn btn-pdf"><i class="ph ph-file-pdf"></i>PDF</button>
+          </div>
+        </div>
+        <div id="debts-summary" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4"></div>
+        <div class="section-card overflow-x-auto">
+          <table class="data-table"><thead><tr><th>Nom et Post-nom</th><th>Catégorie</th><th>Frais fixé</th><th>Payé</th><th>Dette restante</th></tr></thead><tbody id="debts-tbody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function () {
+// ---- Logo intégré (aucun fichier à servir) ----
+const LOGO_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAggAAABwCAMAAABMzHjUAAAAflBMVEX5YwUHSLIAC/P5YwUAPLYHSLMHSbP5YwUAeff3YwQAC38FSLEAfn//PwD//wAITsG/PwCqVQcA//9/fwx/Hx//qgAAAAAISbP6ZAX/fgAAVar+VgAGSLL/AAAHSLP7ZQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAzsgFpAAAAIHRSTlOgXwFdBbHP0gIrAhMCBAH/BAMBAgMDAP79AgMFLwGLEBEipegAABPfSURBVHja7V0Jd5u8EhViX52031MCYvn///JJApttRgs4rpNY5/S0iQ120dXVLHdGhL3Ga4hBfs5/JQv2o3nN8O8Dwmu8gCAGZbnX74Ynfv8avwkIlObR5WM7Lh8e+5LdoeJ1WZf8rRajlKMe/zX+VdfXH28v8Lp7AeERo2DtBzT6L6EEfuwqXn9jINAkC5qmmH5oGmGAFU9It8kDgSDW9uC7jlSBp+bddwQCbYL5MWZJdvshCRr6a4HQVTX5PDBi4g+SF7pvBgSx+uVfeet5fRhG4wiF/eW1iXyheSosPBAIJT+EAzWIz49uLP8ICFSioBEQgJ5uFHqter34hUD4H/M/T4xYQqH+LkCQMAi8/kM3Qi9/Iig8Dgh8iD8/z0GhfkJSAIEgYJB70YdpRH0r3kt/FxBqln6eHXH6fEggIB0E3ofdUFD4VUDg53aGafjs2eIKBHikzIIN5ieds+QJSKH4XkD4JM+GBLLfFoL+w2l4Cjy/hxHSz7sgoXouJGyBELA2+nAcYf7vt4fiuwHhk9T1EwMhQJ6nwWps/3lu59sxgtodnhYIx3CgtofmlwDh/W5AEBYjf1IgJEdx8IuA0NXDvYDwmT4RJyyBQIM8OoaD/p8bCY/LPtaM3AsI8fA8BiNZbQz95RAOovyfh5UeB4Su5PEP3BzI0nH0Dm4M7b/3Gh6YdKrYcDdOGLrq+YBAj24MnuCSX+M+KiSw1CfWI9ZHGJ8OCIcJIXyCeNJDhSnCYHR6d+qjWIg5654NCLQ5SAg5/W1AEBZj+SZGuR9vpfr929vtDdIKwBUMT0MJxJoQoig6tDHQosmyhFJGKW0CNzkLzZQ2rkkSeaUup+EOBNrIkcj7Z9aLWz8w1Ii59tGoEoc5h/M3zgWiePVwIOAphsjz2jxp8rz1+mj3pHU4yBrAjLQEQ9IkwKXJXYCQBHRz39u/kiQpiiIrimQc4u9pcozaU3TSugFFAme7i+q31QdV5fVHzuvNEF+p3v1SJ4zs9u8e376wEbCdIWxXt2q9cOU5Juh6omqpzVq3MAx7T8pZlg8eM/7UGwJxrdf38sJegVGBKzkJBLrU4N20d6ZvJJ8WH4ZhenjAYBrp0YBFH7YeZKfQxFNfmaO+nyqdY639WvdkhAYNKvaymKyhaiTjBLb9wnNMUBiMqIn2ehYFBs2Dp5IyAuBaqZErrjN50GuQFxftmtnEV6Iqh0qZF+6GJ+4uH7hPYv0gA4oENCC53hs6+YNwSdY6x1RJXv9jgKuSsnT/S7+uYHx01QC5O4PY1a5AoJiJEAU02LA9lQImk4GgxG4hGor0pFBeh6A+0umidjCyZgRMfRWJb9QEzIOqZPI/lFVWwQM8aFwilED4sMxoMe4D7xPzjUijYlA4R9j/XKKiEozk9iA9jBACkLdzwQqXMAlQGBjEburBH7v0I/SC7cWWjJAVuPpKbIE5/BRaVnC7wHLMMZORdykSZl4alQPmaQpWqEEzA1ZQDuCWgcnslkBAbUUvC5BV24ZRyzIEBxZiN2l77C5XM2Uhl/Q2akk7IDR69ZXAFwKE/6rUNmg8YJYkR4KLVxIRdIAHHKTOEQQC9+290hoxWSWPkVueAaHxiAUZSuAIt1NLsVvfbEmhsdbJRWthlNXWELA8NMTGECC82wrUCAqEuou1uwkXu71+24EZYbDWOnQdnCVRbzYCQSrRMtgFo4hrZi92izbapsY0U6s5DhYX2wDBInbanwcCZiSkyOYyKpq72vgJMQwE+LaQsYL5sL40UWcg9Bp5qvDprQsYnCYzWuarqGOUe3mxBRCyE0m1vyw9m08cdECQS/Jo2iq1ZSbEzomVZo5YrJZo9P3t6h0bR9HjPJliR3GUzS70MGYgBIdxII3FyrKsBXcbao5vDbVpW9AAoQYrMQGrFRPZ+cKjWTKCp7fT21G6YgJD4yxyuiKBsiB0nqKb+2oEQuaMsuVXzCzrWnBC6BCvQXD73/pEYntAwtfj9FoQwueojiGGFbWLA7EiKO6Jg48oUeCiNA8PzNEVCSYgHBdbjEAQ7ph50caaFFKJ2QDCa+hOlNUOjKexKT6hItXdgFg15Tr7GFgw+hUMARILKg6kMC8qUkGLIDw0Sd7oghrcx1M4UECQU5waWiCUmlTiUMM7Q1wPvDohdBkwGzDdJMsxUzEdZfVktrYsqXPaJUCnMmHHVnWi8VrsthY9IxQ0/zgLBFab84Bco3T0cX/zjOCJi1sPmpU+U9IQ66xKcoTUI4WFvSNx0B4LWZIcX7GjYFIPhOYwzCYg0Mneq+t3jg6NEhU3MXx2roaOsw52TOOhXmPU11q35OBqVp5EUliFeU17Q3jEtNhIqLVACE5tDDMQZLMUYBgTgHWJm5rpyToJLhNVqdlwRXId8TXHvUhDU8entSuKD5JD6y5qiyaITs1TowUCTU7dXrmPWuZf/L7bMUb51mkWfXzKQBiBwN7BSV7Ftqo61YfEF+LVzJk/ZbYgOSt6DAOWnFuxURBogXCWECYbQTXRgkY3Z3hAcuAaf8M/Wzgl00uIAbKMaSBOS3zTsCxVzI27RdUHc3KySY6sO5k90n6wFLMgLXwWcSUcCAnNcl1M2WulQsXGWMRyQrPX2EGehVbGrLEUY+KnYvjECARWvcWGvQEJZ805MsLOFTbMYV7t1qJmc69zk5cnVBPeDkd3Vd5ek4yKgkzDCPh/K7rd/SawwLcGXSJ6YuGucw0MEVzMKOUok+Pnm4AAr/c4vUUXMVNxFlGT01b/HNJBV+38vNt+SyiZZARNhpEVgRSZSl2Sp/0OGBAC1ACRSZRGKWOl8EoTz5KMoG+QMXICd3YEU1zBJhPX71IT9850gUcFhA4OFs2UoFGkQEDAdUpmJGQMI+AwV/JFOZ1UqhiWV0qVErpixYXFzRqV8jU0i9GjfkePo1ugbJawShlWrwNCxXQMPyZunMsiCWYhpMvWnJ0uJTVKULjeXMTSDIugE7lDJEAhIbN63sXieYt5DsY9JcSsyGDz5VDrP2/+YEDIkQn2Nn3ACjymJbaGrtZnneR8CKvNrSoyHjrMuR+2gniiBUINZzKGm9YBIYR3hgBBdUy5uCOhQXeGnq2V48mVAPpJn0QpEkPY92HB2zd4LEGBAFfyhbu7F6jNKhihwwRGK+Pd0QPwWRfbyZxwHE6iNHiqpxt1cOzxc9ncDeihlLun6aSmPUeihjtVC2XhReUIMq1MAOqwT3FlZYNuDfAL+V5ihd5dbg162o9l/Ll0jBEK5gYnKAZSFhzPWXX465N3iLiXq88Bu6q1zgEFQcCtQW6wULLlvdgWshvy4O6uoLS1QZJaIUO3Bnh2wboc7O7KWOyMxqKjrSibKPnWuewa2XauMlX49Un+hPmOXAcEJRxsXTurIRZfiJYvNLOZFmmVBnY2DO41wCZCC2kuMbNVxRF0boOyyrrKqSdrPNQwcmKwnAWjmxsQwNfVFythA2L9OWDn1SKRjnXoRAnwM/RAjStt5nJDiuwpOSiIRH2TFgdCCEYeXNQUt4ASwQJKFXPtwBgP7L0yh4YXFU2pFggdH7CXkTTDmngIVneIlCnhHha48HKj1DGDH36IFK9SFjkCASQcuNcPBsop1yBme+C3wPL8rymyzEsHQoi5LF7ise3OIJvC6ysYUHOxYhxGImdmIFwLFxtbMHjwwjMXGifYHo5VTGDOIOo16MWOm9tH2qRThRSWMldCIAIHsvWKg+wRsVZvQIApI+Z8YDalD2sgFCtXL5tOy8u93giGCARCaO5OgOzLWC1d4AyE1uH2FDZc5zqerqoqWQBfqbGohu8GF9+RKMET4m7CVUqYfmV+N0wJwlxEqGSdPifr58DYmstpYguGBAZCdncgeF8IhMwEhKVnvywsL5kDDoRN0WmMCs7YEUZgb+BXIB38KVu9+zrp1HoB8ISysaHBH60rAYbqIxv5+1MxgnZrWE3LZr3ae44+n4wAjmWPu0NAQDxIrAJmI2kka4HRRWYTKWzoM22AAUZJUhwEAm4jhPcAAmYsYjbC/ssIIzFNU2UsGlPFq5U43IQsKBBAThiM5a6wMeDbFcAseyiNsViZG0DsOm1iBnHXwflcHBqGACHCvIbM1WtwcEoK1H0sLON8xk1hWJzuxW0rEmzcRzSSTIgV2shyf7xck0EZspAFLWCWQutdrFfeFMDUPnw4jkAZmphw8hrE+wvHgNJqUo703IxJWq88DyQnCMcRys43AcEh+0mERYEAYWmFSdUQzMw5mp1s4RfyIoOet5dfaQebWrfIYkRxINgHLrH84x4Ibuc6xTGZdCZlZSFtTqEG/lijjTUQbC3WPevArXOUGBFay0mBAgHXA+wIuL9IW4TSKYgDzlQEfX5W5KgiHlUowamMZN+jLcPoxhIIJAXHwPk1JLS2ApE4AkgJNVYxt2rUaJvtiPedIsntCUc7iTJQuZCjRkIeRFZJRHpd1NeOKQlq/uXW4SQZIHLLNSihwvbuiDDCdmvQHKbKayCBgBLLPqTUoVKmYQ2E1JIQMCAApBh6qjRkcQAwbXBBQETxOSqaJQxu5C6FKbqiAw9olITyUVa4ZR/H+qp1yAS/+8agwIBQDzVY99ChMniC5SHqTdACtU7X4aea2exZMRAiJZpMfOS1dMo8NM3YT83Ds06opNBjK2lgv5IkJjghyxR2AklaIB9Do1lsNfppumwA431YAwFpYeXYax11PmLOyhkKXakpjFgDwc6dgfwSoi93i3qvXSh9Q51ICRWNR14z3yLaqeEDVIAmm7WMjCTbt2pmytNoFnP89gmC0McBIcWDj6xT/TX5GzeLVxeUYGHGCkLoQCBcIwjoRIa9GPrkU6vruaLwJMsHtkCa4lc4zyx7fWqiWfkfDRDw7xV5CYLQY8aiKxB03gdJZ7xoemxtgWCjkgIDFUTbP8lBj5Cg2kNjgUuiuTAcGSlvdfKIXlbROquYJ4R6EEIfwwh6K38scPENUctNe/fOov3bALXjJOxswdlNkYYa3QYM5cxQkY+1A19omKmuwCWPTv/vvgwIp08K2/b5NweV4IAVOVrDvFekHb5Re+4bXGRwCN8akuw00L9qa5DuQHx3IJiwNYCNHoh2b7d+Uqqd7sEt5tKzU1Mla2A1QKCsyR8FhDfG7uQ3OBXBbmrwiamohoFAaM7vDFP4kB584sKjP8Perak/wr2qob8ACI6CVxsgmMzFFD6BlsggwklKCK9tu489cbGiA3p8cxizBjpGYGethK8DAqvPUsJez6T3ILHWsGQM3F7OUPOcyTt0J7mi88OLdmIjPRBOd0yxBELpDAQ0mXQcCIMWW1gjSDLGffuPk9R8ExqEx1b00a/QT5VUmbaH0kk76CuB0PFzm8MeCFiBm5YQxsgiPbFkVk10Zd2BGwtfvKt9cWiuwmJKheibadEmCZ8UCGddSEDqqvMgU8yzITeJwKFt9LJtq+2KhDlNXRxAQs+uuc1G32eRsnPmqBUQ/ENAcC6ZNAJBA60Y9XDnFrz5kRXZN9ujfAqWhxeHfWHRAMGZlry5wtZ0XkPm9LUeCoRzBiMkfv+LUgLeGnbRZ9GdFCLo6I2CZb3DTK6VSy7fIGwXoheLXswWLX4vWJv+LwUCK612B+LbAgHlmLhCW8MuxasCCm6tFgNYC5xZTujuABgnWvKy5aebu7NnFmErDz3KZyskvSsQBF+buzEj7ZYgIHQdYoBqekWTjZ7UuiJewgA74c2uxwJQQ2GPxT5ntLAQIPfzd5T5iFD/X2KZJRBAYUraHT57j7PONzbVsAYCFrCMS/wLko1Yy7IMGjhey7Gwvm8hHNnRkjrordmIlyyO8tFvf32AH+5lszUcSDUs9IudtkaGoL23QSDUtUUvVh0QppM59fVt0djzTntygzr8C78JMJNLLLba8jr18dtPl4XMF9w7vcKFsgbB2dhiDTnuj1Kzg0b4CRyoVYye8Sa1CRw77g8ie7gVa5xWnTUQ5BwqHpTH/wIHcPZeGzCLk1yVUDEAATX2+sfrpLHTP6dr5ScDF1PB+9DZnftjH9le23DDFqXgAaDbj6vE8t2dxHl2yKJqnu7acxKfj0UxNXwAKAAERPKsIwS4LJ5e55nmuZRtjKNt82xiDauznbPx1FjZNnUSFEQzkLSlcMnyzF55mLA8TlidCTy+euoAePXR+fS11H1bI8HZOYGnR60malCnAcuDZWU1hDpsvnb9KsSaPLRAmMAArLsiW6iajeMGqCBXI2DWQFqcJkaD+WwI3VlCSUKzzSgamKyK3afNJXjyhPBM/rmOJAGXb/V3qVQu74ADddubPVff0FHNonjgkHBrU1FLCIwYpjIrRgmzFHlmRxZN1gQLQI09VC1hVDRBcwVN1ogfCsruNGgibidLXApx3+Rut73LqHjJ1QRXnJfc3RFBAoubDimOQLjbgx8Hew0HZauT0olJzXNVS4s1tZesPhwIr/GwAZ8RbLAQXkD4GeRRcaI0z7JVQ/x5hBBeQPgJwyJrFZuiHC8g/ARGMGuhjXmQFxB+BSGYw98vIPwA89Ase0xfQPgNhJCeJ4QXEL7/MJ8kG3Pz2ZQvIPwA3/H8xvACwm8wFX0bocQLCN8eCKa6CDuV/QsI395l8E2tXq0SVy8gfPudwVD8PHQVewHh55uK3aDHQWqpmHkB4ZsDoR70dqJtOvsFhO/vNMQa7XNtK2t4AeHbcwLjcL8tpX22vs0LCD/Ab5CC17X6OSbqQAAHIeULCD+AE8YJH1JfDCL+pKoHgpv2+QWEHzH+8k3Q6M1V9foCwo8ZVc3LUirrOa/cr34B4TXU+D9FJHVbzL/hmwAAAABJRU5ErkJggg=="
+document.querySelectorAll('.js-logo').forEach(i => { i.src = LOGO_SRC })
+
+// ---- Menu latéral mobile (tiroir) ----
+const sidebar = document.getElementById('app-sidebar')
+const overlay = document.getElementById('sidebar-overlay')
+const sbToggle = document.getElementById('sidebar-toggle')
+function setSidebar(open) {
+  sidebar.classList.toggle('open', open)
+  overlay.classList.toggle('show', open)
+  sbToggle.setAttribute('aria-expanded', String(open))
+}
+sbToggle.addEventListener('click', () => setSidebar(!sidebar.classList.contains('open')))
+overlay.addEventListener('click', () => setSidebar(false))
+document.addEventListener('keydown', e => { if (e.key === 'Escape') setSidebar(false) })
+// Fermer le tiroir après un clic sur une rubrique (admin.js gère le changement d'onglet)
+sidebar.addEventListener('click', e => { if (e.target.closest('.nav-link')) setSidebar(false) })
+// Navigation clavier : Entrée / Espace sur une rubrique
+sidebar.addEventListener('keydown', e => {
+  const link = e.target.closest('.nav-link')
+  if (link && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); link.click() }
+})
+})()
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="/static/js/api.js?v=10"></script>
+<script src="/static/js/export.js?v=10"></script>
+<script src="/static/js/percepteur.js?v=10"></script>
+</body>
+</html>

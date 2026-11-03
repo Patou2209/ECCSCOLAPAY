@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Super Admin — ScolaPay</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+<link href="/static/css/style.css?v=10" rel="stylesheet">
+</head>
+<body class="bg-slate-100">
+<div id="toast-container"></div>
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="app-sidebar w-64 bg-slate-900 text-white flex flex-col fixed inset-y-0 left-0 overflow-y-auto">
+    <div class="p-5 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center"><i class="fas fa-shield-halved"></i></div>
+        <div>
+          <p class="font-bold text-sm">Super Admin</p>
+          <p class="text-xs text-slate-400">Gestion Plateforme</p>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-3 space-y-1">
+      <div class="nav-link active" data-tab="dashboard"><i class="fas fa-gauge w-4"></i>Tableau de bord</div>
+      <div class="nav-link" data-tab="schools"><i class="fas fa-school w-4"></i>Écoles</div>
+    </nav>
+    <div class="p-3 border-t border-white/10">
+      <div id="user-info" class="text-xs text-slate-400 mb-2 px-2"></div>
+      <div class="nav-link" onclick="doLogout()"><i class="fas fa-right-from-bracket w-4"></i>Déconnexion</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="app-main flex-1 ml-64 p-8">
+    <!-- DASHBOARD -->
+    <section id="tab-dashboard">
+      <h1 class="text-2xl font-bold text-slate-800 mb-1">Tableau de bord général</h1>
+      <p class="text-slate-500 text-sm mb-6">Vue d'ensemble de toutes les écoles inscrites sur la plateforme</p>
+      <div id="dash-stats" class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8"></div>
+    </section>
+
+    <!-- SCHOOLS -->
+    <section id="tab-schools" class="hidden">
+      <div class="section-header-flex flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-slate-800">Écoles</h1>
+          <p class="text-slate-500 text-sm">Créer et administrer les écoles de la plateforme</p>
+        </div>
+        <button onclick="showCreateSchoolModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold"><i class="fas fa-plus mr-2"></i>Nouvelle école</button>
+      </div>
+      <div class="section-card overflow-x-auto">
+        <table class="data-table">
+          <thead><tr><th>École</th><th>Code</th><th>Classes</th><th>Élèves</th><th>Admins</th><th>Statut</th><th>Actions</th></tr></thead>
+          <tbody id="schools-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="/static/js/api.js?v=10"></script>
+<script>
+let currentUser = null
+
+async function init() {
+  const data = await guardAuth(['super_admin'])
+  if (!data) return
+  currentUser = data.user
+  document.getElementById('user-info').innerHTML = `<i class="fas fa-user-circle mr-1"></i>${escapeHtml(data.user.name)}`
+  setupTabs()
+  await loadDashboard()
+  await loadSchools()
+}
+
+function setupTabs() {
+  document.querySelectorAll('.nav-link[data-tab]').forEach(link => {
+    link.addEventListener('click', () => {
+      document.querySelectorAll('.nav-link[data-tab]').forEach(l => l.classList.remove('active'))
+      link.classList.add('active')
+      document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'))
+      document.getElementById('tab-' + link.dataset.tab).classList.remove('hidden')
+    })
+  })
+}
+
+async function loadDashboard() {
+  const d = await Api.get('/api/superadmin/dashboard')
+  const stats = [
+    { label: 'Écoles', value: d.schools, icon: 'fa-school', color: 'text-blue-600' },
+    { label: 'Écoles actives', value: d.active_schools, icon: 'fa-circle-check', color: 'text-green-600' },
+    { label: 'Élèves', value: d.students, icon: 'fa-user-graduate', color: 'text-indigo-600' },
+    { label: 'Utilisateurs', value: d.users, icon: 'fa-users', color: 'text-purple-600' },
+    { label: 'Total perçu', value: fmtMoney(d.total_collected), icon: 'fa-coins', color: 'text-amber-600' }
+  ]
+  document.getElementById('dash-stats').innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-medium text-slate-500">${s.label}</span>
+        <i class="fas ${s.icon} ${s.color}"></i>
+      </div>
+      <p class="text-xl font-bold text-slate-800">${s.value}</p>
+    </div>`).join('')
+}
+
+async function loadSchools() {
+  const { schools } = await Api.get('/api/superadmin/schools')
+  document.getElementById('schools-tbody').innerHTML = schools.map(s => `
+    <tr>
+      <td class="font-medium">${escapeHtml(s.name)}</td>
+      <td><span class="badge badge-blue">${escapeHtml(s.code)}</span></td>
+      <td>${s.class_count}</td>
+      <td>${s.student_count}</td>
+      <td>${s.admin_count}</td>
+      <td>${s.active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-red">Désactivée</span>'}</td>
+      <td class="space-x-2 whitespace-nowrap">
+        <button onclick="manageSchool(${s.id}, '${escapeHtml(s.name)}')" class="text-blue-600 hover:underline text-xs font-semibold"><i class="fas fa-gear"></i> Gérer</button>
+        <button onclick="toggleSchool(${s.id}, ${s.active ? 0 : 1})" class="text-xs font-semibold ${s.active ? 'text-red-600' : 'text-green-600'} hover:underline">${s.active ? 'Désactiver' : 'Activer'}</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="7" class="text-center text-slate-400 py-6">Aucune école enregistrée</td></tr>'
+}
+
+function showCreateSchoolModal() {
+  openModal(`
+    <div class="p-6">
+      <h3 class="text-lg font-bold text-slate-800 mb-4"><i class="fas fa-school mr-2 text-blue-600"></i>Créer une nouvelle école</h3>
+      <form id="create-school-form" class="space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-medium text-slate-600">Nom de l'école *</label><input required id="cs-name" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+          <div><label class="text-xs font-medium text-slate-600">Code court (unique) *</label><input required id="cs-code" placeholder="ex: INST-KIVU" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+        </div>
+        <div><label class="text-xs font-medium text-slate-600">Adresse</label><input id="cs-address" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-medium text-slate-600">Téléphone</label><input id="cs-phone" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+          <div><label class="text-xs font-medium text-slate-600">Devise</label><input id="cs-currency" value="CDF" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+        </div>
+        <div><label class="text-xs font-medium text-slate-600">Année scolaire *</label><input required id="cs-year" placeholder="2025-2026" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+        <hr class="my-2">
+        <p class="text-xs font-semibold text-slate-500">Compte administrateur de l'école</p>
+        <div><label class="text-xs font-medium text-slate-600">Nom complet *</label><input required id="cs-admin-name" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-medium text-slate-600">Email *</label><input required type="email" id="cs-admin-email" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+          <div><label class="text-xs font-medium text-slate-600">Mot de passe *</label><input required type="text" id="cs-admin-password" class="w-full mt-1 px-3 py-2 border rounded-lg text-sm"></div>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm rounded-lg text-slate-600 hover:bg-slate-100">Annuler</button>
+          <button type="submit" class="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Créer l'école</button>
+        </div>
+      </form>
+    </div>
+  `)
+  document.getElementById('create-school-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    try {
+      await Api.post('/api/superadmin/schools', {
+        name: document.getElementById('cs-name').value,
+        code: document.getElementById('cs-code').value,
+        address: document.getElementById('cs-address').value,
+        phone: document.getElementById('cs-phone').value,
+        currency: document.getElementById('cs-currency').value,
+        year_label: document.getElementById('cs-year').value,
+        admin_name: document.getElementById('cs-admin-name').value,
+        admin_email: document.getElementById('cs-admin-email').value,
+        admin_password: document.getElementById('cs-admin-password').value
+      })
+      toast('École créée avec succès', 'success')
+      closeModal()
+      loadSchools()
+      loadDashboard()
+    } catch (err) { toast(err.message, 'error') }
+  })
+}
+
+async function toggleSchool(id, active) {
+  try {
+    await Api.patch(`/api/superadmin/schools/${id}`, { active })
+    toast('Statut mis à jour', 'success')
+    loadSchools()
+  } catch (err) { toast(err.message, 'error') }
+}
+
+async function manageSchool(id, name) {
+  const { admins } = await Api.get(`/api/superadmin/schools/${id}/admins`)
+  openModal(`
+    <div class="p-6">
+      <h3 class="text-lg font-bold text-slate-800 mb-1"><i class="fas fa-gear mr-2 text-blue-600"></i>${escapeHtml(name)}</h3>
+      <p class="text-xs text-slate-500 mb-4">Administrateurs de cette école</p>
+      <div class="space-y-2 mb-4 max-h-48 overflow-y-auto">
+        ${admins.map(a => `<div class="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg text-sm">
+          <div><p class="font-medium">${escapeHtml(a.name)}</p><p class="text-xs text-slate-500">${escapeHtml(a.email)}</p></div>
+          <span class="badge ${a.active ? 'badge-green' : 'badge-gray'}">${a.active ? 'Actif' : 'Inactif'}</span>
+        </div>`).join('') || '<p class="text-sm text-slate-400">Aucun admin</p>'}
+      </div>
+      <hr class="mb-4">
+      <p class="text-xs font-semibold text-slate-500 mb-2">Ajouter un administrateur</p>
+      <form id="add-admin-form" class="space-y-2">
+        <input required id="aa-name" placeholder="Nom complet" class="w-full px-3 py-2 border rounded-lg text-sm">
+        <input required type="email" id="aa-email" placeholder="Email" class="w-full px-3 py-2 border rounded-lg text-sm">
+        <input required type="text" id="aa-password" placeholder="Mot de passe" class="w-full px-3 py-2 border rounded-lg text-sm">
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm rounded-lg text-slate-600 hover:bg-slate-100">Fermer</button>
+          <button type="submit" class="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Ajouter</button>
+        </div>
+      </form>
+    </div>
+  `)
+  document.getElementById('add-admin-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    try {
+      await Api.post(`/api/superadmin/schools/${id}/admins`, {
+        name: document.getElementById('aa-name').value,
+        email: document.getElementById('aa-email').value,
+        password: document.getElementById('aa-password').value
+      })
+      toast('Administrateur ajouté', 'success')
+      closeModal()
+      loadSchools()
+    } catch (err) { toast(err.message, 'error') }
+  })
+}
+
+init()
+</script>
+</body>
+</html>

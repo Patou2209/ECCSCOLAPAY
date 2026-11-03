@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Percepteur — ScolaPay</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+<link href="/static/css/style.css?v=10" rel="stylesheet">
+</head>
+<body class="bg-slate-100">
+<div id="toast-container"></div>
+
+<div class="flex min-h-screen">
+  <aside class="app-sidebar w-64 bg-slate-900 text-white flex flex-col fixed inset-y-0 left-0 overflow-y-auto">
+    <div class="p-5 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-600 flex items-center justify-center"><i class="fas fa-hand-holding-dollar"></i></div>
+        <div>
+          <p class="font-bold text-sm">Percepteur</p>
+          <p id="school-name-label" class="text-xs text-slate-400 truncate w-32">École</p>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-3 space-y-1">
+      <div class="nav-link active" data-tab="perception"><i class="fas fa-hand-holding-dollar w-4"></i>Perception journalière</div>
+      <div class="nav-link" data-tab="debts"><i class="fas fa-triangle-exclamation w-4"></i>Listes de dettes</div>
+    </nav>
+    <div class="p-3 border-t border-white/10">
+      <div id="user-info" class="text-xs text-slate-400 mb-2 px-2"></div>
+      <div class="nav-link" onclick="doLogout()"><i class="fas fa-right-from-bracket w-4"></i>Déconnexion</div>
+    </div>
+  </aside>
+
+  <main class="app-main flex-1 ml-64 p-8">
+    <!-- PERCEPTION : vue 1 = cartes KPI par classe -->
+    <section id="tab-perception">
+      <div id="perception-classes-view">
+        <div class="mb-6"><h1 class="text-2xl font-bold text-slate-800">Registre de perception journalière</h1><p class="text-slate-500 text-sm">Sélectionnez une de vos classes pour enregistrer les paiements</p></div>
+        <!-- Barre de recherche générale d'élèves -->
+        <div class="section-card mb-4">
+          <label class="text-xs font-medium text-slate-600 block mb-1"><i class="fas fa-magnifying-glass mr-1.5 text-blue-600"></i>Recherche rapide d'un élève (toutes vos classes)</label>
+          <div class="student-search-wrap">
+            <input type="text" id="student-search-input" placeholder="Tapez le nom, post-nom ou matricule d'un élève…" class="w-full px-4 py-2.5 border rounded-lg text-sm" autocomplete="off">
+            <div id="student-search-results" class="student-search-results hidden"></div>
+          </div>
+        </div>
+        <div class="section-card mb-6">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div><label class="text-xs font-medium text-slate-600 block mb-1">Trimestre</label><select id="perc-summary-trimester" class="px-3 py-2 border rounded-lg text-sm w-44"></select></div>
+            <div><label class="text-xs font-medium text-slate-600 block mb-1">Jour</label><input type="date" id="perc-summary-date" class="px-3 py-2 border rounded-lg text-sm"></div>
+            <button onclick="loadPerceptionClasses()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-search mr-2"></i>Afficher</button>
+            <button onclick="printAllMyClassesReceipts()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-print mr-2"></i>Imprimer les reçus de toutes mes classes</button>
+          </div>
+        </div>
+        <div id="perception-classes-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+
+      <!-- vue 2 = détail d'une classe (registre + impression) -->
+      <div id="perception-detail-view" class="hidden">
+        <div class="mb-6">
+          <button onclick="closePerceptionDetail()" class="text-blue-600 hover:underline text-sm font-semibold mb-2"><i class="fas fa-arrow-left mr-1"></i>Retour aux classes</button>
+          <h1 id="perception-detail-title" class="text-2xl font-bold text-slate-800">Classe</h1>
+          <p class="text-slate-500 text-sm">Registre de perception journalière</p>
+        </div>
+        <div class="section-card mb-6">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div><label class="text-xs font-medium text-slate-600 block mb-1">Trimestre</label><select id="perc-trimester" class="px-3 py-2 border rounded-lg text-sm w-44"></select></div>
+            <div><label class="text-xs font-medium text-slate-600 block mb-1">Jour</label><input type="date" id="perc-date" class="px-3 py-2 border rounded-lg text-sm"></div>
+            <button onclick="loadRegistre()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-search mr-2"></i>Afficher</button>
+            <button onclick="printAllReceipts()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-print mr-2"></i>Imprimer les reçus (période)</button>
+            <button onclick="exportRegistreExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-excel mr-1.5"></i>Excel</button>
+            <button onclick="exportRegistrePdf()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-pdf mr-1.5"></i>PDF</button>
+          </div>
+        </div>
+        <div id="registre-summary" class="grid grid-cols-3 gap-4 mb-4"></div>
+        <div class="section-card overflow-x-auto">
+          <table class="data-table">
+            <thead><tr><th>N°</th><th>Nom et Post-nom</th><th>Catégorie</th><th>Montant du jour</th><th>Reçu</th><th>Action</th></tr></thead>
+            <tbody id="registre-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- DEBTS : vue 1 = cartes KPI par classe -->
+    <section id="tab-debts" class="hidden">
+      <div id="debts-classes-view">
+        <div class="mb-6"><h1 class="text-2xl font-bold text-slate-800">Listes des dettes</h1><p class="text-slate-500 text-sm">Sélectionnez une de vos classes pour voir ses élèves endettés</p></div>
+        <div class="section-card mb-6">
+          <div class="flex flex-wrap gap-3 items-end">
+            <div><label class="text-xs font-medium text-slate-600 block mb-1">Trimestre</label><select id="debt-summary-trimester" class="px-3 py-2 border rounded-lg text-sm w-44"></select></div>
+            <button onclick="loadDebtsClasses()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-search mr-2"></i>Afficher</button>
+          </div>
+        </div>
+        <div id="debts-classes-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+
+      <!-- vue 2 = détail des dettes d'une classe -->
+      <div id="debts-detail-view" class="hidden">
+        <div class="section-header-flex flex items-center justify-between mb-6">
+          <div>
+            <button onclick="closeDebtsDetail()" class="text-blue-600 hover:underline text-sm font-semibold mb-2"><i class="fas fa-arrow-left mr-1"></i>Retour aux classes</button>
+            <h1 id="debts-detail-title" class="text-2xl font-bold text-slate-800">Classe</h1>
+            <p class="text-slate-500 text-sm">Élèves n'ayant pas soldé leurs frais</p>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="exportDebtsExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-excel mr-1.5"></i>Excel</button>
+            <button onclick="exportDebtsPdf()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-pdf mr-1.5"></i>PDF</button>
+          </div>
+        </div>
+        <div id="debts-summary" class="grid grid-cols-2 gap-4 mb-4"></div>
+        <div class="section-card overflow-x-auto">
+          <table class="data-table"><thead><tr><th>Nom et Post-nom</th><th>Catégorie</th><th>Frais fixé</th><th>Payé</th><th>Dette restante</th></tr></thead><tbody id="debts-tbody"></tbody></table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="/static/js/api.js?v=10"></script>
+<script src="/static/js/export.js?v=10"></script>
+<script src="/static/js/percepteur.js?v=10"></script>
+</body>
+</html>

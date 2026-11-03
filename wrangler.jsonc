@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "webapp",
+  "compatibility_date": "2026-07-30",
+  "pages_build_output_dir": "./dist",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "finance_app",
+      "database_id": "82200d2f-22f4-402e-946d-6603983afb94"
+    }
+  ]
+}

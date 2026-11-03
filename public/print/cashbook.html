@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Impression — Livre de caisse</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+<style>
+  body { background: #e2e8f0; font-family: 'Segoe UI', 'Inter', system-ui, sans-serif; }
+  .print-sheet {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: #fff;
+    padding: 14mm 12mm;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.18);
+  }
+  table.cashbook { border-collapse: collapse; width: 100%; }
+  table.cashbook th {
+    background: #1e293b;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 8px 6px;
+    border: 1px solid #334155;
+  }
+  table.cashbook td {
+    font-size: 11.5px;
+    padding: 6px;
+    border: 1px solid #94a3b8;
+    color: #1e293b;
+  }
+  table.cashbook tbody tr:nth-child(even) { background: #f8fafc; }
+  .row-total td {
+    background: #fef3c7 !important;
+    font-weight: 800;
+    border: 2px solid #1e293b !important;
+    font-size: 12px;
+  }
+  .row-init td { background: #e2e8f0 !important; font-weight: 600; }
+  @media print {
+    @page { size: A4 portrait; margin: 8mm; }
+    body { background: #fff; }
+    .print-sheet { width: auto; min-height: auto; margin: 0; padding: 0; box-shadow: none; }
+    .no-print { display: none !important; }
+    table.cashbook th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    table.cashbook td, .row-total td, .row-init td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body class="py-8">
+  <div id="toast-container"></div>
+
+  <!-- Barre d'actions (masquée à l'impression) -->
+  <div class="no-print max-w-[210mm] mx-auto flex flex-wrap items-center justify-between gap-3 mb-5 bg-white rounded-xl shadow px-5 py-3">
+    <p class="text-sm font-semibold text-slate-700"><i class="fas fa-book mr-2 text-blue-600"></i>Aperçu avant impression — Livre de caisse</p>
+    <div class="flex gap-2">
+      <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow">
+        <i class="fas fa-print mr-2"></i>Imprimer
+      </button>
+      <button onclick="window.close()" class="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+        <i class="fas fa-times mr-1"></i>Fermer
+      </button>
+    </div>
+  </div>
+
+  <!-- Feuille A4 -->
+  <div class="print-sheet" id="sheet">
+    <div class="text-center py-16 text-slate-400"><i class="fas fa-spinner fa-spin text-2xl"></i><p class="mt-3 text-sm">Chargement du livre de caisse…</p></div>
+  </div>
+
+<script src="/static/js/api.js?v=10"></script>
+<script>
+function fmtNum(n) {
+  if (!n && n !== 0) return ''
+  return Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 })
+}
+
+async function load() {
+  const params = new URLSearchParams(window.location.search)
+  const from = params.get('from') || ''
+  const to = params.get('to') || ''
+
+  let school = null
+  try {
+    const me = await Api.get('/api/auth/me')
+    school = me.school
+  } catch (e) {
+    document.getElementById('sheet').innerHTML = '<p class="text-center text-red-600 py-16">Session expirée. Veuillez vous reconnecter.</p>'
+    return
+  }
+
+  let url = '/api/cashbook'
+  const q = []
+  if (from) q.push('from=' + from)
+  if (to) q.push('to=' + to)
+  if (q.length) url += '?' + q.join('&')
+
+  let data
+  try {
+    data = await Api.get(url)
+  } catch (err) {
+    document.getElementById('sheet').innerHTML = `<p class="text-center text-red-600 py-16">${escapeHtml(err.message)}</p>`
+    return
+  }
+
+  const currency = (school && school.currency) || 'CDF'
+  const now = new Date()
+  const editedAt = now.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) +
+    ' à ' + now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+
+  let periode = 'Toutes les opérations de l\'année scolaire en cours'
+  if (from && to) periode = `Période du ${fmtDate(from)} au ${fmtDate(to)}`
+  else if (from) periode = `Opérations à partir du ${fmtDate(from)}`
+  else if (to) periode = `Opérations jusqu'au ${fmtDate(to)}`
+
+  const rows = data.entries.map((e, i) => `
+    <tr>
+      <td class="text-center whitespace-nowrap">${fmtDate(e.entry_date)}</td>
+      <td class="text-center font-semibold">${escapeHtml(e.code || '')}</td>
+      <td>${escapeHtml(e.libelle)}</td>
+      <td class="text-center">${escapeHtml(e.ref || '')}</td>
+      <td class="text-right ${e.entree ? 'text-green-700 font-semibold' : ''}">${e.entree ? fmtNum(e.entree) : ''}</td>
+      <td class="text-right ${e.sortie ? 'text-red-700 font-semibold' : ''}">${e.sortie ? fmtNum(e.sortie) : ''}</td>
+      <td class="text-right font-bold">${fmtNum(e.solde)}</td>
+    </tr>`).join('')
+
+  document.getElementById('sheet').innerHTML = `
+    <!-- En-tête établissement -->
+    <header class="flex items-start justify-between border-b-4 border-slate-800 pb-4 mb-5">
+      <div class="flex items-center gap-4">
+        ${school && school.logo_url
+          ? `<img src="${escapeHtml(school.logo_url)}" alt="Logo" class="w-16 h-16 object-contain">`
+          : `<div class="w-16 h-16 rounded-xl bg-slate-800 text-white flex items-center justify-center text-2xl"><i class="fas fa-school"></i></div>`}
+        <div>
+          <h1 class="text-xl font-extrabold uppercase text-slate-900 leading-tight">${escapeHtml(school ? school.name : 'École')}</h1>
+          ${school && school.code ? `<p class="text-xs text-slate-500 font-semibold">Code : ${escapeHtml(school.code)}</p>` : ''}
+        </div>
+      </div>
+      <div class="text-right text-xs text-slate-500">
+        <p class="font-semibold">Édité le</p>
+        <p>${editedAt}</p>
+      </div>
+    </header>
+
+    <!-- Titre du document -->
+    <div class="text-center mb-5">
+      <h2 class="inline-block text-lg font-extrabold uppercase tracking-widest text-white bg-slate-800 px-8 py-2 rounded">Livre de caisse</h2>
+      <p class="text-sm text-slate-600 mt-2 font-medium">${periode}</p>
+    </div>
+
+    <!-- Résumé -->
+    <section class="grid grid-cols-4 gap-3 mb-5 text-center">
+      <div class="border-2 border-slate-300 rounded-lg py-2.5">
+        <p class="text-[10px] uppercase font-bold text-slate-500 tracking-wide">Solde initial</p>
+        <p class="text-sm font-extrabold text-slate-800">${fmtNum(data.solde_initial)} ${currency}</p>
+      </div>
+      <div class="border-2 border-green-300 bg-green-50 rounded-lg py-2.5">
+        <p class="text-[10px] uppercase font-bold text-green-700 tracking-wide">Total entrées</p>
+        <p class="text-sm font-extrabold text-green-700">${fmtNum(data.total_entree)} ${currency}</p>
+      </div>
+      <div class="border-2 border-red-300 bg-red-50 rounded-lg py-2.5">
+        <p class="text-[10px] uppercase font-bold text-red-700 tracking-wide">Total sorties</p>
+        <p class="text-sm font-extrabold text-red-700">${fmtNum(data.total_sortie)} ${currency}</p>
+      </div>
+      <div class="border-2 border-blue-300 bg-blue-50 rounded-lg py-2.5">
+        <p class="text-[10px] uppercase font-bold text-blue-700 tracking-wide">Solde final</p>
+        <p class="text-sm font-extrabold text-blue-700">${fmtNum(data.solde_final)} ${currency}</p>
+      </div>
+    </section>
+
+    <!-- Tableau -->
+    <table class="cashbook">
+      <thead>
+        <tr>
+          <th style="width:11%">Date</th>
+          <th style="width:7%">Code</th>
+          <th style="width:32%; text-align:left">Libellé de l'opération</th>
+          <th style="width:10%">Réf.</th>
+          <th style="width:13%; text-align:right">Entrée (${currency})</th>
+          <th style="width:13%; text-align:right">Sortie (${currency})</th>
+          <th style="width:14%; text-align:right">Solde (${currency})</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-init">
+          <td colspan="6">Solde initial reporté</td>
+          <td class="text-right">${fmtNum(data.solde_initial)}</td>
+        </tr>
+        ${rows || '<tr><td colspan="7" class="text-center text-slate-400 py-6">Aucune opération sur cette période</td></tr>'}
+        <tr class="row-total">
+          <td colspan="4" class="uppercase">Totaux de la période</td>
+          <td class="text-right text-green-700">${fmtNum(data.total_entree)}</td>
+          <td class="text-right text-red-700">${fmtNum(data.total_sortie)}</td>
+          <td class="text-right">${fmtNum(data.solde_final)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="text-[10px] text-slate-400 mt-2">Codes pièces : F = Facture · B = Bon · R = Reçu · AUT = Autodéclaration. ${data.entries.length} opération(s) listée(s).</p>
+
+    <!-- Signatures -->
+    <footer class="flex justify-between mt-14 px-4">
+      <div class="text-center text-xs text-slate-700">
+        <p class="font-semibold mb-14">Le Caissier / Percepteur</p>
+        <p class="border-t-2 border-slate-500 pt-1.5 px-10 text-slate-500">Nom & Signature</p>
+      </div>
+      <div class="text-center text-xs text-slate-700">
+        <p class="font-semibold mb-14">Le Chef d'Établissement</p>
+        <p class="border-t-2 border-slate-500 pt-1.5 px-10 text-slate-500">${school && school.head_name ? escapeHtml(school.head_name) + ' — Signature & Sceau' : 'Nom, Signature & Sceau'}</p>
+      </div>
+    </footer>
+  `
+  document.title = `Livre de caisse — ${school ? school.name : ''}`
+}
+load()
+</script>
+</body>
+</html>

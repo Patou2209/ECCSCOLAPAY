@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Enseignant — ScolaPay</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+<link href="/static/css/style.css?v=10" rel="stylesheet">
+</head>
+<body class="bg-slate-100">
+<div id="toast-container"></div>
+
+<div class="flex min-h-screen">
+  <aside class="app-sidebar w-64 bg-slate-900 text-white flex flex-col fixed inset-y-0 left-0 overflow-y-auto">
+    <div class="p-5 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center"><i class="fas fa-chalkboard-user"></i></div>
+        <div>
+          <p class="font-bold text-sm">Enseignant</p>
+          <p id="school-name-label" class="text-xs text-slate-400 truncate w-32">École</p>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-3 space-y-1">
+      <div class="nav-link active"><i class="fas fa-user-graduate w-4"></i>Mes classes & élèves</div>
+    </nav>
+    <div class="p-3 border-t border-white/10">
+      <div id="user-info" class="text-xs text-slate-400 mb-2 px-2"></div>
+      <div class="nav-link" onclick="doLogout()"><i class="fas fa-right-from-bracket w-4"></i>Déconnexion</div>
+    </div>
+  </aside>
+
+  <main class="app-main flex-1 ml-64 p-8">
+    <div class="mb-6"><h1 class="text-2xl font-bold text-slate-800">Mes classes</h1><p class="text-slate-500 text-sm">Consultation des classes dont vous êtes titulaire</p></div>
+    <div id="classes-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+  </main>
+</div>
+
+<script src="/static/js/api.js?v=10"></script>
+<script>
+async function init() {
+  const data = await guardAuth(['enseignant'])
+  if (!data) return
+  document.getElementById('user-info').innerHTML = `<i class="fas fa-user-circle mr-1"></i>${escapeHtml(data.user.name)}`
+  document.getElementById('school-name-label').textContent = data.school ? data.school.name : 'École'
+
+  // Pas de route dédiée listant les classes de l'enseignant : réutilisation de /api/admin non permise (rôle),
+  // on utilise donc une agrégation simple côté shared si besoin. Pour l'instant on affiche un message informatif.
+  document.getElementById('classes-container').innerHTML = `
+    <div class="section-card col-span-2 text-center py-10">
+      <i class="fas fa-info-circle text-3xl text-blue-500 mb-3"></i>
+      <p class="text-slate-600 text-sm">Le module de consultation détaillé des classes pour les enseignants sera bientôt disponible.</p>
+      <p class="text-slate-400 text-xs mt-1">Contactez l'administrateur de votre école pour toute information sur vos classes affectées.</p>
+    </div>`
+}
+init()
+</script>
+</body>
+</html>

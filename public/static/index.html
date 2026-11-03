@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ScolaPay — Gestion financière scolaire</title>
+<meta name="description" content="ScolaPay : perception des frais scolaires, livre de caisse, prévision budgétaire et rapports financiers pour les établissements scolaires.">
+<meta name="theme-color" content="#0B4AAE">
+
+<!-- Police -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Icônes (Phosphor, police d'icônes via CDN) + Font Awesome conservé pour les toasts de api.js / style.css -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/bold/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css">
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Figtree', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'] },
+        colors: {
+          brand:  { DEFAULT: '#0B4AAE', dark: '#083A8A', deep: '#062C6B', soft: '#EAF1FC' },
+          accent: { DEFAULT: '#F96A0A', dark: '#D95A04', soft: '#FFF0E5' },
+          ink:    { DEFAULT: '#0F1B33', soft: '#44506A' }
+        }
+      }
+    }
+  }
+</script>
+<link href="/static/css/style.css?v=10" rel="stylesheet">
+
+<style>
+  body { overflow-x: clip; }
+  html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+  body { font-family: 'Figtree', system-ui, sans-serif; color: #0F1B33; background: #fff; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { letter-spacing: -0.02em; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* Quadrillage discret derrière le hero, estompé vers les bords */
+  .hero-grid {
+    background-image:
+      linear-gradient(to right, rgba(15,27,51,.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(15,27,51,.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 75% at 65% 35%, #000 20%, transparent 75%);
+            mask-image: radial-gradient(ellipse 70% 75% at 65% 35%, #000 20%, transparent 75%);
+  }
+
+  /* Papier du livre de caisse imprimable */
+  .paper { box-shadow: 0 1px 0 rgba(255,255,255,.4) inset, 0 30px 60px -20px rgba(3,20,60,.55); }
+  .ledger th, .ledger td { border: 1px solid #cbd5e1; }
+
+  /* Focus clavier visible */
+  a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid rgba(249,106,10,.55); outline-offset: 2px; }
+
+  /* Une seule animation d'entrée : le hero */
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .rise { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+  .rise-2 { animation-delay: .12s; } .rise-3 { animation-delay: .24s; }
+  @media (prefers-reduced-motion: reduce) {
+    .rise { animation: none; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+
+<body>
+<div id="toast-container"></div>
+
+<!-- ======================= NAVBAR ======================= -->
+<header id="main-navbar" class="fixed top-0 inset-x-0 z-50 bg-white/85 backdrop-blur border-b border-slate-200/80 transition-shadow">
+  <nav class="max-w-7xl mx-auto px-5 sm:px-8">
+    <div class="flex items-center justify-between h-16">
+      <a href="#accueil" id="nav-logo" class="flex items-center" aria-label="ScolaPay, accueil">
+        <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="ScolaPay" class="js-logo h-7 w-auto" width="130" height="28">
+      </a>
+
+      <div class="hidden md:flex items-center gap-1" id="nav-links-desktop">
+        <a href="#accueil" class="px-3.5 py-2 rounded-lg text-sm font-medium text-ink-soft hover:text-brand hover:bg-brand-soft transition-colors">Accueil</a>
+        <a href="#fonctionnalites" class="px-3.5 py-2 rounded-lg text-sm font-medium text-ink-soft hover:text-brand hover:bg-brand-soft transition-colors">Fonctionnalités</a>
+        <a href="#livre-caisse" class="px-3.5 py-2 rounded-lg text-sm font-medium text-ink-soft hover:text-brand hover:bg-brand-soft transition-colors">Livre de caisse</a>
+        <a href="#apropos" class="px-3.5 py-2 rounded-lg text-sm font-medium text-ink-soft hover:text-brand hover:bg-brand-soft transition-colors">À propos</a>
+        <a href="#connexion" class="ml-3 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-brand hover:bg-brand-dark text-white transition-colors">
+          <i class="ph-bold ph-sign-in text-base"></i>Connexion
+        </a>
+      </div>
+
+      <button id="nav-toggle" class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg text-ink hover:bg-slate-100 transition-colors" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-mobile">
+        <i class="ph ph-list text-2xl" id="nav-toggle-icon"></i>
+      </button>
+    </div>
+
+    <div id="nav-mobile" class="md:hidden hidden pb-4 pt-1 border-t border-slate-100">
+      <a href="#accueil" class="nav-mobile-link block px-3 py-3 rounded-lg text-[15px] font-medium text-ink hover:bg-slate-50">Accueil</a>
+      <a href="#fonctionnalites" class="nav-mobile-link block px-3 py-3 rounded-lg text-[15px] font-medium text-ink hover:bg-slate-50">Fonctionnalités</a>
+      <a href="#livre-caisse" class="nav-mobile-link block px-3 py-3 rounded-lg text-[15px] font-medium text-ink hover:bg-slate-50">Livre de caisse</a>
+      <a href="#apropos" class="nav-mobile-link block px-3 py-3 rounded-lg text-[15px] font-medium text-ink hover:bg-slate-50">À propos</a>
+      <a href="#connexion" class="nav-mobile-link mt-2 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-[15px] font-semibold bg-brand text-white">
+        <i class="ph-bold ph-sign-in text-lg"></i>Connexion
+      </a>
+    </div>
+  </nav>
+</header>
+
+<main>
+<!-- ======================= HERO ======================= -->
+<section id="accueil" class="relative pt-28 pb-16 lg:pt-36 lg:pb-24 overflow-hidden">
+  <div class="hero-grid absolute inset-0 pointer-events-none" aria-hidden="true"></div>
+
+  <div class="relative max-w-7xl mx-auto px-5 sm:px-8 grid grid-cols-1 lg:grid-cols-12 gap-14 items-center">
+    <div class="lg:col-span-6 min-w-0">
+      <p class="rise inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white pl-2 pr-3.5 py-1 text-[13px] font-medium text-ink-soft">
+        <span class="w-6 h-6 rounded-full bg-accent-soft text-accent flex items-center justify-center"><i class="ph-fill ph-lightning text-sm"></i></span>
+        Perception, caisse, budget et rapports au même endroit
+      </p>
+
+      <h1 class="rise rise-2 mt-6 text-[2.6rem] leading-[1.05] sm:text-6xl font-extrabold text-ink">
+        La gestion financière de votre école, simplifiée.
+      </h1>
+
+      <p class="rise rise-2 mt-6 text-lg leading-relaxed text-ink-soft max-w-xl">
+        Encaissez les frais scolaires, tenez votre livre de caisse, suivez votre budget et sortez vos rapports. Depuis un ordinateur ou un téléphone, sans classeur ni calcul à la main.
+      </p>
+
+      <div class="rise rise-3 mt-9 flex flex-col sm:flex-row gap-3">
+        <a href="#connexion" class="inline-flex items-center justify-center gap-2 bg-accent hover:bg-accent-dark text-white font-semibold px-7 py-3.5 rounded-xl transition-colors">
+          Commencer maintenant
+        </a>
+        <a href="#fonctionnalites" class="inline-flex items-center justify-center gap-2 bg-white border border-slate-300 hover:border-brand hover:text-brand text-ink font-semibold px-7 py-3.5 rounded-xl transition-colors">
+          <i class="ph ph-info text-xl"></i>Découvrir
+        </a>
+      </div>
+
+      <dl class="rise rise-3 mt-12 flex gap-8 sm:gap-12 pt-8 border-t border-slate-200 max-w-lg">
+        <div class="flex flex-col-reverse">
+          <dt class="text-sm text-ink-soft">Rôles utilisateurs</dt>
+          <dd class="text-3xl font-extrabold text-brand num" data-counter="4">4</dd>
+        </div>
+        <div class="flex flex-col-reverse">
+          <dt class="text-sm text-ink-soft">Modules de gestion</dt>
+          <dd class="text-3xl font-extrabold text-brand num" data-counter="7">7</dd>
+        </div>
+        <div class="flex flex-col-reverse">
+          <dt class="text-sm text-ink-soft">Traçabilité</dt>
+          <dd class="text-3xl font-extrabold text-brand num"><span data-counter="100">100</span>%</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!-- Aperçu de l'application -->
+    <div class="lg:col-span-6 min-w-0 relative rise rise-3">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-[0_30px_70px_-30px_rgba(11,74,174,.35)] overflow-hidden">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <div class="flex items-center gap-3">
+            <span class="w-9 h-9 rounded-lg bg-brand-soft text-brand flex items-center justify-center"><i class="ph-fill ph-notebook text-xl"></i></span>
+            <div>
+              <p class="font-bold text-[15px] leading-tight">Livre de caisse</p>
+              <p class="text-xs text-ink-soft">Janvier 2027</p>
+            </div>
+          </div>
+          <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+            <i class="ph-fill ph-check-circle text-sm"></i>À jour
+          </span>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs sm:text-sm num">
+            <thead>
+              <tr class="text-left text-xs text-ink-soft bg-slate-50">
+                <th class="hidden sm:table-cell px-5 py-2.5 font-semibold">Date</th>
+                <th class="pl-4 pr-2 sm:px-3 py-2.5 font-semibold">Libellé</th>
+                <th class="px-2 sm:px-3 py-2.5 font-semibold text-right">Entrée</th>
+                <th class="px-2 sm:px-3 py-2.5 font-semibold text-right">Sortie</th>
+                <th class="pl-2 pr-4 sm:px-5 py-2.5 font-semibold text-right">Solde</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr><td class="hidden sm:table-cell px-5 py-3 text-ink-soft">05/01</td><td class="pl-4 pr-2 sm:px-3 py-3">Frais scolaires</td><td class="px-2 sm:px-3 py-3 text-right text-emerald-700 font-medium">250 000</td><td class="px-2 sm:px-3 py-3 text-right text-slate-300">—</td><td class="pl-2 pr-4 sm:px-5 py-3 text-right font-semibold">250 000</td></tr>
+              <tr><td class="hidden sm:table-cell px-5 py-3 text-ink-soft">08/01</td><td class="pl-4 pr-2 sm:px-3 py-3">Achat de craies</td><td class="px-2 sm:px-3 py-3 text-right text-slate-300">—</td><td class="px-2 sm:px-3 py-3 text-right text-red-600 font-medium">35 000</td><td class="pl-2 pr-4 sm:px-5 py-3 text-right font-semibold">215 000</td></tr>
+              <tr><td class="hidden sm:table-cell px-5 py-3 text-ink-soft">12/01</td><td class="pl-4 pr-2 sm:px-3 py-3">Frais scolaires</td><td class="px-2 sm:px-3 py-3 text-right text-emerald-700 font-medium">180 000</td><td class="px-2 sm:px-3 py-3 text-right text-slate-300">—</td><td class="pl-2 pr-4 sm:px-5 py-3 text-right font-semibold">395 000</td></tr>
+              <tr><td class="hidden sm:table-cell px-5 py-3 text-ink-soft">15/01</td><td class="pl-4 pr-2 sm:px-3 py-3">Transport de ciment</td><td class="px-2 sm:px-3 py-3 text-right text-slate-300">—</td><td class="px-2 sm:px-3 py-3 text-right text-red-600 font-medium">50 000</td><td class="pl-2 pr-4 sm:px-5 py-3 text-right font-semibold">345 000</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex items-center justify-between px-5 py-4 bg-brand text-white">
+          <p class="text-sm text-blue-100">Solde final</p>
+          <p class="text-xl font-extrabold num">345 000 CDF</p>
+        </div>
+      </div>
+
+      <!-- Reçu flottant -->
+      <div class="hidden lg:flex absolute -bottom-8 -left-8 items-center gap-3 bg-white border border-slate-200 rounded-xl pl-3 pr-5 py-3 shadow-xl shadow-slate-900/10">
+        <span class="w-10 h-10 rounded-lg bg-accent-soft text-accent flex items-center justify-center"><i class="ph-fill ph-receipt text-xl"></i></span>
+        <div>
+          <p class="text-sm font-bold leading-tight">Reçu n° 0142</p>
+          <p class="text-xs text-ink-soft num">25 000 CDF · 1er trimestre</p>
+        </div>
+      </div>
+      <div class="hidden lg:flex absolute -top-6 -right-4 items-center gap-2 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-xl shadow-slate-900/10">
+        <i class="ph-fill ph-printer text-xl text-brand"></i>
+        <p class="text-sm font-semibold">Impression A4 en un clic</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= FONCTIONNALITÉS ======================= -->
+<section id="fonctionnalites" class="py-20 lg:py-28 bg-slate-50 border-y border-slate-200">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12">
+    <div class="lg:col-span-4 min-w-0">
+      <div class="lg:sticky lg:top-28">
+        <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight">Tout ce dont votre école a besoin pour ses comptes</h2>
+        <p class="mt-4 text-ink-soft leading-relaxed">Une suite d'outils pensée pour les administrateurs, les percepteurs et les enseignants, du premier paiement au rapport de fin de trimestre.</p>
+        <a href="#connexion" class="mt-7 inline-flex items-center gap-2 text-brand font-semibold hover:text-brand-dark">
+          Ouvrir mon espace <i class="ph-bold ph-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+
+    <div class="lg:col-span-8 min-w-0">
+      <ul class="grid grid-cols-1 sm:grid-cols-2 gap-px bg-slate-200 border border-slate-200 rounded-2xl overflow-hidden">
+        <li class="bg-white p-7">
+          <span class="w-11 h-11 rounded-lg bg-brand-soft text-brand flex items-center justify-center text-2xl"><i class="ph ph-hand-coins"></i></span>
+          <h3 class="mt-5 font-bold text-lg">Perception des frais</h3>
+          <p class="mt-2 text-[15px] text-ink-soft leading-relaxed">Enregistrez les paiements des élèves par trimestre. Chaque reçu est numéroté automatiquement et prêt à imprimer.</p>
+        </li>
+        <li class="bg-white p-7">
+          <span class="w-11 h-11 rounded-lg bg-accent-soft text-accent flex items-center justify-center text-2xl"><i class="ph ph-notebook"></i></span>
+          <h3 class="mt-5 font-bold text-lg">Livre de caisse imprimable</h3>
+          <p class="mt-2 text-[15px] text-ink-soft leading-relaxed">Entrées, sorties et solde cumulé calculés pour vous. Impression au format A4 en un clic.</p>
+        </li>
+        <li class="bg-white p-7">
+          <span class="w-11 h-11 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-2xl"><i class="ph ph-chart-pie-slice"></i></span>
+          <h3 class="mt-5 font-bold text-lg">Prévision budgétaire</h3>
+          <p class="mt-2 text-[15px] text-ink-soft leading-relaxed">Fixez vos prévisions par catégorie et suivez le taux de réalisation, trimestre après trimestre.</p>
+        </li>
+        <li class="bg-white p-7">
+          <span class="w-11 h-11 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-2xl"><i class="ph ph-warning-circle"></i></span>
+          <h3 class="mt-5 font-bold text-lg">Suivi des dettes</h3>
+          <p class="mt-2 text-[15px] text-ink-soft leading-relaxed">Repérez tout de suite les élèves en retard de paiement, classe par classe, avec le montant qu'il leur reste à payer.</p>
+        </li>
+        <li class="bg-white p-7">
+          <span class="w-11 h-11 rounded-lg bg-violet-50 text-violet-700 flex items-center justify-center text-2xl"><i class="ph ph-file-text"></i></span>
+          <h3 class="mt-5 font-bold text-lg">Rapports financiers</h3>
+          <p class="mt-2 text-[15px] text-ink-soft leading-relaxed">Recettes, dépenses et taux de recouvrement par trimestre. Des chiffres clairs pour décider vite.</p>
+        </li>
+        <li class="bg-white p-7">
+          <span class="w-11 h-11 rounded-lg bg-slate-100 text-ink flex items-center justify-center text-2xl"><i class="ph ph-users-three"></i></span>
+          <h3 class="mt-5 font-bold text-lg">Accès par rôle</h3>
+          <p class="mt-2 text-[15px] text-ink-soft leading-relaxed">Super administrateur, administrateur, percepteur ou enseignant : chacun n'accède qu'à son propre espace.</p>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= LIVRE DE CAISSE ======================= -->
+<section id="livre-caisse" class="py-20 lg:py-28 bg-brand text-white overflow-hidden">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8 grid grid-cols-1 lg:grid-cols-12 gap-14 items-center">
+    <div class="lg:col-span-5 min-w-0">
+      <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight">Un livre de caisse clair, présentable et imprimable</h2>
+      <p class="mt-4 text-blue-100 leading-relaxed">Le registre que vous remettez au chef d'établissement, sans rature et sans erreur de report.</p>
+
+      <ul class="mt-9 space-y-6">
+        <li class="flex gap-4">
+          <span class="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 text-xl"><i class="ph ph-columns"></i></span>
+          <div><p class="font-semibold">En-têtes lisibles</p><p class="text-[15px] text-blue-100 mt-0.5">Date, code, libellé, entrée, sortie et solde, dans la présentation des registres officiels.</p></div>
+        </li>
+        <li class="flex gap-4">
+          <span class="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 text-xl"><i class="ph ph-calculator"></i></span>
+          <div><p class="font-semibold">Solde cumulé automatique</p><p class="text-[15px] text-blue-100 mt-0.5">Chaque ligne recalcule le solde. Plus d'erreur de calcul.</p></div>
+        </li>
+        <li class="flex gap-4">
+          <span class="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 text-xl"><i class="ph ph-funnel"></i></span>
+          <div><p class="font-semibold">Filtrage par période</p><p class="text-[15px] text-blue-100 mt-0.5">Imprimez le mois, le trimestre ou l'année, avec le solde initial reporté.</p></div>
+        </li>
+        <li class="flex gap-4">
+          <span class="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0 text-xl"><i class="ph ph-signature"></i></span>
+          <div><p class="font-semibold">Zones de signature</p><p class="text-[15px] text-blue-100 mt-0.5">Un espace pour le caissier et pour le chef d'établissement sur chaque édition.</p></div>
+        </li>
+      </ul>
+
+      <a href="#connexion" class="mt-10 inline-flex items-center gap-2 bg-accent hover:bg-accent-dark text-white font-semibold px-7 py-3.5 rounded-xl transition-colors">
+        Accéder au livre de caisse
+      </a>
+    </div>
+
+    <div class="lg:col-span-7 min-w-0">
+      <div class="paper bg-white rounded-md text-ink p-3 sm:p-8 max-w-2xl mx-auto lg:ml-auto">
+        <div class="text-center border-b-2 border-ink pb-3 mb-5">
+          <p class="font-extrabold text-lg tracking-tight">Livre de caisse</p>
+          <p class="text-xs text-ink-soft mt-0.5">Année scolaire 2026-2027</p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="ledger w-full text-[11px] sm:text-xs border-collapse num">
+            <thead>
+              <tr class="bg-ink text-white">
+                <th class="px-1.5 sm:px-2 py-2 text-left font-semibold">Date</th>
+                <th class="hidden sm:table-cell px-2 py-2 font-semibold">Code</th>
+                <th class="px-1.5 sm:px-2 py-2 text-left font-semibold">Libellé</th>
+                <th class="px-1.5 sm:px-2 py-2 text-right font-semibold">Entrée</th>
+                <th class="px-1.5 sm:px-2 py-2 text-right font-semibold">Sortie</th>
+                <th class="px-1.5 sm:px-2 py-2 text-right font-semibold">Solde</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="bg-slate-100 font-semibold"><td class="px-1.5 sm:px-2 py-1.5 sm:hidden" colspan="4">Solde initial reporté</td><td class="px-1.5 sm:px-2 py-1.5 hidden sm:table-cell" colspan="5">Solde initial reporté</td><td class="px-1.5 sm:px-2 py-1.5 text-right">120 000</td></tr>
+              <tr><td class="px-1.5 sm:px-2 py-1.5">05/01</td><td class="hidden sm:table-cell px-2 py-1.5 text-center">R</td><td class="px-1.5 sm:px-2 py-1.5">Frais scolaires du jour</td><td class="px-1.5 sm:px-2 py-1.5 text-right text-emerald-700">250 000</td><td class="px-1.5 sm:px-2 py-1.5 text-right text-slate-400">—</td><td class="px-1.5 sm:px-2 py-1.5 text-right font-semibold">370 000</td></tr>
+              <tr class="bg-slate-50"><td class="px-1.5 sm:px-2 py-1.5">08/01</td><td class="hidden sm:table-cell px-2 py-1.5 text-center">F</td><td class="px-1.5 sm:px-2 py-1.5">Achat de fournitures</td><td class="px-1.5 sm:px-2 py-1.5 text-right text-slate-400">—</td><td class="px-1.5 sm:px-2 py-1.5 text-right text-red-700">35 000</td><td class="px-1.5 sm:px-2 py-1.5 text-right font-semibold">335 000</td></tr>
+              <tr><td class="px-1.5 sm:px-2 py-1.5">12/01</td><td class="hidden sm:table-cell px-2 py-1.5 text-center">B</td><td class="px-1.5 sm:px-2 py-1.5">Transport de matériaux</td><td class="px-1.5 sm:px-2 py-1.5 text-right text-slate-400">—</td><td class="px-1.5 sm:px-2 py-1.5 text-right text-red-700">50 000</td><td class="px-1.5 sm:px-2 py-1.5 text-right font-semibold">285 000</td></tr>
+              <tr class="bg-amber-50 font-bold"><td class="px-1.5 sm:px-2 py-2 !border-2 !border-ink sm:hidden" colspan="2">Totaux</td><td class="px-1.5 sm:px-2 py-2 !border-2 !border-ink hidden sm:table-cell" colspan="3">Totaux</td><td class="px-1.5 sm:px-2 py-2 text-right text-emerald-700 !border-2 !border-ink">250 000</td><td class="px-1.5 sm:px-2 py-2 text-right text-red-700 !border-2 !border-ink">85 000</td><td class="px-1.5 sm:px-2 py-2 text-right !border-2 !border-ink">285 000</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-between gap-6 mt-8 text-[11px] text-ink-soft">
+          <div class="text-center"><p class="mb-9">Le caissier / percepteur</p><p class="border-t border-slate-400 pt-1 px-4 sm:px-8">Signature</p></div>
+          <div class="text-center"><p class="mb-9">Le chef d'établissement</p><p class="border-t border-slate-400 pt-1 px-4 sm:px-8">Signature et sceau</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= RÔLES ======================= -->
+<section class="py-20 lg:py-24">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8">
+    <div class="max-w-2xl">
+      <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight">Un espace adapté à chaque rôle</h2>
+      <p class="mt-4 text-ink-soft leading-relaxed">Chaque personne voit ce dont elle a besoin pour son travail, et rien de plus.</p>
+    </div>
+
+    <div class="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-t border-slate-200">
+      <div class="py-7 lg:pr-8 border-b lg:border-b-0 border-slate-200">
+        <i class="ph ph-shield-check text-3xl text-brand"></i>
+        <h3 class="mt-4 font-bold">Super administrateur</h3>
+        <p class="mt-1.5 text-[15px] text-ink-soft leading-relaxed">Initialise la plateforme et supervise l'ensemble.</p>
+      </div>
+      <div class="py-7 lg:px-8 lg:border-l border-b lg:border-b-0 border-slate-200">
+        <i class="ph ph-briefcase text-3xl text-brand"></i>
+        <h3 class="mt-4 font-bold">Administrateur</h3>
+        <p class="mt-1.5 text-[15px] text-ink-soft leading-relaxed">Pilote le budget, les rapports et le suivi des dettes.</p>
+      </div>
+      <div class="py-7 lg:px-8 lg:border-l border-b lg:border-b-0 border-slate-200">
+        <i class="ph ph-coins text-3xl text-accent"></i>
+        <h3 class="mt-4 font-bold">Percepteur</h3>
+        <p class="mt-1.5 text-[15px] text-ink-soft leading-relaxed">Encaisse les frais, remet les reçus et tient le livre de caisse.</p>
+      </div>
+      <div class="py-7 lg:pl-8 lg:border-l border-slate-200">
+        <i class="ph ph-chalkboard-teacher text-3xl text-brand"></i>
+        <h3 class="mt-4 font-bold">Enseignant</h3>
+        <p class="mt-1.5 text-[15px] text-ink-soft leading-relaxed">Accède à son espace dédié, sans voir les comptes de l'école.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= CONNEXION ======================= -->
+<section id="connexion" class="py-20 lg:py-28 bg-slate-50 border-t border-slate-200">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+    <div class="lg:col-span-6 min-w-0">
+      <h2 class="text-3xl sm:text-4xl font-extrabold leading-tight">Accédez à votre espace de gestion</h2>
+      <p class="mt-4 text-ink-soft leading-relaxed max-w-md">Connectez-vous avec l'adresse email et le mot de passe fournis par l'administrateur de votre établissement.</p>
+      <ul class="mt-8 space-y-4 text-[15px]">
+        <li class="flex items-center gap-3"><i class="ph-fill ph-lock-key text-2xl text-brand"></i>Connexion sécurisée</li>
+        <li class="flex items-center gap-3"><i class="ph-fill ph-users-three text-2xl text-brand"></i>Accès limité à votre rôle</li>
+        <li class="flex items-center gap-3"><i class="ph-fill ph-clock-counter-clockwise text-2xl text-brand"></i>Chaque opération est enregistrée</li>
+      </ul>
+    </div>
+
+    <div class="lg:col-span-6 min-w-0 w-full max-w-md lg:max-w-none lg:justify-self-end">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-[0_24px_60px_-30px_rgba(11,74,174,.3)] p-7 sm:p-9 lg:max-w-md lg:ml-auto">
+        <h3 class="text-xl font-bold">Connexion</h3>
+        <p class="text-sm text-ink-soft mt-1">Entrez vos identifiants pour continuer.</p>
+
+        <form id="login-form" class="mt-6 space-y-5">
+          <div>
+            <label for="login-email" class="text-sm font-semibold text-ink">Adresse email</label>
+            <div class="relative mt-1.5">
+              <i class="ph ph-envelope-simple absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xl pointer-events-none"></i>
+              <input type="email" id="login-email" required autocomplete="email" class="w-full pl-11 pr-3 py-3 border border-slate-300 rounded-xl text-[15px] placeholder-slate-400 focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none transition" placeholder="vous@ecole.cd">
+            </div>
+          </div>
+          <div>
+            <label for="login-password" class="text-sm font-semibold text-ink">Mot de passe</label>
+            <div class="relative mt-1.5">
+              <i class="ph ph-lock-simple absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xl pointer-events-none"></i>
+              <input type="password" id="login-password" required autocomplete="current-password" class="w-full pl-11 pr-12 py-3 border border-slate-300 rounded-xl text-[15px] placeholder-slate-400 focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none transition" placeholder="••••••••">
+              <button type="button" id="toggle-password" class="absolute right-1.5 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:text-brand hover:bg-slate-100" aria-label="Afficher le mot de passe">
+                <i class="ph ph-eye text-xl" id="toggle-password-icon"></i>
+              </button>
+            </div>
+          </div>
+          <button type="submit" id="login-btn" class="w-full inline-flex items-center justify-center gap-2 bg-brand hover:bg-brand-dark disabled:opacity-70 text-white font-semibold py-3.5 rounded-xl transition-colors text-[15px]">
+            <i class="ph-bold ph-sign-in text-lg"></i>Se connecter
+          </button>
+        </form>
+
+        <div id="bootstrap-box" class="hidden mt-7 pt-7 border-t border-slate-200">
+          <p class="flex gap-2.5 text-sm text-ink-soft mb-4 leading-relaxed">
+            <i class="ph-fill ph-info text-xl text-accent shrink-0"></i>
+            <span>Aucun super administrateur n'existe encore. Créez le premier compte pour initialiser la plateforme.</span>
+          </p>
+          <form id="bootstrap-form" class="space-y-3">
+            <input type="text" id="boot-name" required placeholder="Nom complet" class="w-full px-3.5 py-3 border border-slate-300 rounded-xl text-[15px] outline-none focus:border-accent focus:ring-4 focus:ring-accent/15">
+            <input type="email" id="boot-email" required placeholder="Email" class="w-full px-3.5 py-3 border border-slate-300 rounded-xl text-[15px] outline-none focus:border-accent focus:ring-4 focus:ring-accent/15">
+            <input type="password" id="boot-password" required placeholder="Mot de passe" class="w-full px-3.5 py-3 border border-slate-300 rounded-xl text-[15px] outline-none focus:border-accent focus:ring-4 focus:ring-accent/15">
+            <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-accent hover:bg-accent-dark text-white font-semibold py-3 rounded-xl transition-colors text-[15px]">
+              <i class="ph-bold ph-user-gear text-lg"></i>Créer le super administrateur
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ======================= À PROPOS / FOOTER ======================= -->
+<footer id="apropos" class="bg-white border-t border-slate-200 pt-16 pb-8">
+  <div class="max-w-7xl mx-auto px-5 sm:px-8">
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12">
+      <div class="md:col-span-5">
+        <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="ScolaPay" class="js-logo h-8 w-auto" width="148" height="32">
+        <p class="mt-5 text-[15px] text-ink-soft leading-relaxed max-w-sm">Plateforme de gestion financière pour les établissements scolaires : transparence, rigueur et temps gagné au quotidien.</p>
+      </div>
+      <div class="md:col-span-3 md:col-start-7">
+        <h4 class="font-bold mb-4">Navigation</h4>
+        <ul class="space-y-2.5 text-[15px] text-ink-soft">
+          <li><a href="#accueil" class="hover:text-brand transition-colors">Accueil</a></li>
+          <li><a href="#fonctionnalites" class="hover:text-brand transition-colors">Fonctionnalités</a></li>
+          <li><a href="#livre-caisse" class="hover:text-brand transition-colors">Livre de caisse</a></li>
+          <li><a href="#connexion" class="hover:text-brand transition-colors">Connexion</a></li>
+        </ul>
+      </div>
+      <div class="md:col-span-3">
+        <h4 class="font-bold mb-4">Modules</h4>
+        <ul class="space-y-2.5 text-[15px] text-ink-soft">
+          <li class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-lg text-emerald-600"></i>Perception et reçus</li>
+          <li class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-lg text-emerald-600"></i>Livre de caisse imprimable</li>
+          <li class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-lg text-emerald-600"></i>Prévision budgétaire</li>
+          <li class="flex items-center gap-2"><i class="ph-fill ph-check-circle text-lg text-emerald-600"></i>Rapports et recouvrement</li>
+        </ul>
+      </div>
+    </div>
+    <p class="pt-6 border-t border-slate-200 text-sm text-ink-soft">© 2026 ScolaPay. Tous droits réservés.</p>
+  </div>
+</footer>
+
+<script>
+// Logo intégré (aucun fichier à servir)
+const LOGO_SRC = "data:image/png;base64,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"
+document.querySelectorAll(".js-logo").forEach(i => { i.src = LOGO_SRC })
+</script>
+<script src="/static/js/api.js?v=10"></script>
+<script>
+// ---- Navbar : ombre au défilement ----
+const navbar = document.getElementById('main-navbar')
+const onScroll = () => navbar.classList.toggle('shadow-sm', window.scrollY > 8)
+onScroll(); window.addEventListener('scroll', onScroll, { passive: true })
+
+// ---- Navbar mobile ----
+const navToggle = document.getElementById('nav-toggle')
+const navMobile = document.getElementById('nav-mobile')
+const navIcon = document.getElementById('nav-toggle-icon')
+function setMenu(open) {
+  navMobile.classList.toggle('hidden', !open)
+  navIcon.className = open ? 'ph ph-x text-2xl' : 'ph ph-list text-2xl'
+  navToggle.setAttribute('aria-expanded', String(open))
+}
+navToggle.addEventListener('click', () => setMenu(navMobile.classList.contains('hidden')))
+document.querySelectorAll('.nav-mobile-link').forEach(a => a.addEventListener('click', () => setMenu(false)))
+
+// ---- Compteurs : s'animent une fois, quand le bloc devient visible ----
+const counters = document.querySelectorAll('[data-counter]')
+function runCounter(el) {
+  const target = parseInt(el.dataset.counter, 10)
+  let current = 0
+  const step = Math.max(1, Math.ceil(target / 40))
+  const timer = setInterval(() => {
+    current = Math.min(target, current + step)
+    el.textContent = current
+    if (current >= target) clearInterval(timer)
+  }, 35)
+}
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(en => { if (en.isIntersecting) { const el = en.target; el.textContent = '0'; runCounter(el); io.unobserve(el) } })
+  }, { threshold: 0.6 })
+  counters.forEach(el => io.observe(el))
+}
+
+// ---- Afficher / masquer le mot de passe ----
+document.getElementById('toggle-password').addEventListener('click', () => {
+  const input = document.getElementById('login-password')
+  const show = input.type === 'password'
+  input.type = show ? 'text' : 'password'
+  document.getElementById('toggle-password-icon').className = show ? 'ph ph-eye-slash text-xl' : 'ph ph-eye text-xl'
+  document.getElementById('toggle-password').setAttribute('aria-label', show ? 'Masquer le mot de passe' : 'Afficher le mot de passe')
+})
+
+// ---- Bootstrap super admin ----
+async function checkBootstrap() {
+  try {
+    const { bootstrapped } = await Api.get('/api/bootstrap/status')
+    if (!bootstrapped) document.getElementById('bootstrap-box').classList.remove('hidden')
+  } catch (e) { /* ignore */ }
+}
+checkBootstrap()
+
+// ---- Si déjà connecté, rediriger ----
+Api.get('/api/auth/me').then(d => redirectByRole(d.user.role)).catch(() => {})
+
+// ---- Connexion ----
+const LOGIN_LABEL = '<i class="ph-bold ph-sign-in text-lg"></i>Se connecter'
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  const btn = document.getElementById('login-btn')
+  btn.disabled = true
+  btn.innerHTML = '<i class="ph-bold ph-spinner text-lg animate-spin"></i>Connexion...'
+  try {
+    const email = document.getElementById('login-email').value.trim()
+    const password = document.getElementById('login-password').value
+    const data = await Api.post('/api/auth/login', { email, password })
+    toast('Connexion réussie', 'success')
+    setTimeout(() => redirectByRole(data.user.role), 300)
+  } catch (err) {
+    toast(err.message, 'error')
+    btn.disabled = false
+    btn.innerHTML = LOGIN_LABEL
+  }
+})
+
+// ---- Création super admin ----
+document.getElementById('bootstrap-form').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  try {
+    const name = document.getElementById('boot-name').value.trim()
+    const email = document.getElementById('boot-email').value.trim()
+    const password = document.getElementById('boot-password').value
+    await Api.post('/api/bootstrap', { name, email, password })
+    toast('Super administrateur créé ! Vous pouvez vous connecter.', 'success')
+    document.getElementById('bootstrap-box').classList.add('hidden')
+    document.getElementById('login-email').value = email
+  } catch (err) {
+    toast(err.message, 'error')
+  }
+})
+</script>
+</body>
+</html>

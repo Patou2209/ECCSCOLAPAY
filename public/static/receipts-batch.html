@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Reçus de la classe</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+<link href="/static/css/style.css?v=10" rel="stylesheet">
+<style>
+  body { background: #e2e8f0; }
+  /* Aperçu écran : mêmes proportions que la grille d'impression (2 colonnes x 3 lignes / page A4 portrait = 6 reçus par page, plus grands et lisibles) */
+  .receipts-page {
+    background: #fff;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 24px auto;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  }
+  .receipt-cell {
+    border: 1px dashed #94a3b8;
+    padding: 4mm 5mm;
+    font-size: 10.5px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .receipt-cell.empty { border-style: dotted; opacity: 0.3; }
+  .receipt-cell h1 { font-size: 13px; }
+  .receipt-cell .receipt-title { font-size: 11.5px; }
+  .receipt-cell .receipt-small { font-size: 8.5px; }
+  .receipt-cell table td { padding: 1px 0; }
+  .receipt-cell .amount-box { padding: 2.5mm; }
+  .receipt-cell .sign-line { height: 7mm; }
+
+  @media print {
+    @page { size: A4 portrait; margin: 6mm; }
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .receipts-page {
+      width: auto;
+      min-height: 0;
+      height: 285mm;  /* 297mm - 2 x 6mm de marge : tout reste dans la zone imprimable */
+      box-shadow: none;
+      margin: 0;
+      page-break-after: always;
+    }
+    .receipts-page:last-child { page-break-after: auto; }
+  }
+</style>
+</head>
+<body class="py-8">
+  <div id="toast-container"></div>
+  <div class="no-print flex justify-center items-center gap-3 mb-6">
+    <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-print mr-2"></i>Imprimer tout</button>
+    <button onclick="window.close()" class="bg-slate-500 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Fermer</button>
+  </div>
+  <div class="no-print text-center text-slate-500 text-sm mb-6" id="summary-line"></div>
+
+  <div id="receipts-container">
+    <div class="text-center loader"></div>
+  </div>
+
+<script src="/static/js/api.js?v=10"></script>
+<script>
+const RECEIPTS_PER_PAGE = 6
+
+async function loadReceipts() {
+  const params = new URLSearchParams(window.location.search)
+  const classId = params.get('class_id')
+  const percepteurId = params.get('percepteur_ids') || params.get('percepteur_id') // un ou plusieurs (ids séparés par des virgules)
+  const allClasses = params.get('all_classes')
+  const paymentId = params.get('payment_id') // reçu unique : même rendu qu'une case du lot
+  const date = params.get('date')
+  const dateFrom = params.get('date_from') || date
+  const dateTo = params.get('date_to') || date
+  try {
+    let data
+    if (paymentId) {
+      // Mode reçu unique : un seul reçu, placé dans la 1re case (haut gauche) de la page A4
+      const r = await Api.get(`/api/perception/receipt/${paymentId}`)
+      data = {
+        school: r.school,
+        single: true,
+        class: { name: r.payment.class_name },
+        date_from: r.payment.date_paiement,
+        date_to: r.payment.date_paiement,
+        count: 1,
+        payments: [{ ...r.payment, fee_amount: r.fee_amount, total_paid: r.total_paid, balance: r.balance }]
+      }
+    } else if (allClasses) {
+      // Mode toutes mes classes : tous les reçus des classes du percepteur connecté
+      data = await Api.get(`/api/perception/my-classes-receipts?date_from=${dateFrom}&date_to=${dateTo}`)
+    } else if (percepteurId) {
+      // Mode percepteur : tous les reçus d'un ou plusieurs percepteurs sur la période
+      data = await Api.get(`/api/perception/percepteur-receipts?percepteur_ids=${percepteurId}&date_from=${dateFrom}&date_to=${dateTo}`)
+    } else if (classId && dateFrom) {
+      data = await Api.get(`/api/perception/class-receipts?class_id=${classId}&date_from=${dateFrom}&date_to=${dateTo}`)
+    } else {
+      document.getElementById('receipts-container').innerHTML = '<p class="text-center text-red-600">Classe/percepteur ou date non spécifié</p>'
+      return
+    }
+    render(data)
+  } catch (err) {
+    document.getElementById('receipts-container').innerHTML = `<p class="text-center text-red-600">${escapeHtml(err.message)}</p>`
+  }
+}
+
+function renderOneReceipt(school, payment, fee_amount, total_paid, balance) {
+  const dateObj = new Date(payment.date_paiement + 'T00:00:00')
+  const jour = dateObj.toLocaleDateString('fr-FR', { weekday: 'long' })
+  return `
+    <div class="receipt-cell">
+      <div class="text-center mb-1">
+        <h1 class="font-bold uppercase leading-tight">${escapeHtml(school.name)}</h1>
+        ${school.address ? `<p class="text-slate-500 receipt-small">${escapeHtml(school.address)}</p>` : ''}
+        ${school.phone ? `<p class="text-slate-500 receipt-small">Tél: ${escapeHtml(school.phone)}</p>` : ''}
+      </div>
+      <div class="text-center border-y border-slate-800 py-0.5 mb-1">
+        <p class="receipt-title font-bold tracking-wide">REÇU DE PAIEMENT</p>
+        <p class="text-slate-500 receipt-small">N° ${escapeHtml(payment.receipt_number)}</p>
+      </div>
+
+      <table class="w-full mb-1">
+        <tr><td class="text-slate-500" style="width:32%">Année scolaire</td><td class="font-semibold">: ${escapeHtml(payment.year_label)}</td></tr>
+        <tr><td class="text-slate-500">Élève</td><td class="font-semibold">: ${escapeHtml(payment.nom)} ${escapeHtml(payment.post_nom)} ${escapeHtml(payment.prenom || '')}</td></tr>
+        <tr><td class="text-slate-500">Classe</td><td class="font-semibold">: ${escapeHtml(payment.class_name)}</td></tr>
+        <tr><td class="text-slate-500">Trimestre</td><td class="font-semibold">: ${escapeHtml(payment.trimester_name)}</td></tr>
+        <tr><td class="text-slate-500">Jour et date</td><td class="font-semibold capitalize">: ${jour}, ${fmtDate(payment.date_paiement)}</td></tr>
+      </table>
+
+      <div class="amount-box border border-slate-300 rounded mb-1" style="line-height:1.5">
+        <div class="flex justify-between"><span class="text-slate-500">Frais du trimestre</span><span class="font-semibold">${fmtMoney(fee_amount, school.currency)}</span></div>
+        <div class="flex justify-between font-bold border-t border-slate-200"><span>Montant payé ce jour</span><span class="text-green-700">${fmtMoney(payment.montant, school.currency)}</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Total payé (cumul)</span><span class="font-semibold">${fmtMoney(total_paid, school.currency)}</span></div>
+        <div class="flex justify-between font-bold border-t border-slate-200"><span>Dette restante</span><span class="${balance > 0 ? 'text-red-700' : 'text-green-700'}">${balance > 0 ? fmtMoney(balance, school.currency) : 'SOLDÉ'}</span></div>
+      </div>
+
+      <p class="text-slate-500 mb-1 receipt-small">Perçu par : <span class="font-semibold text-slate-700">${escapeHtml(payment.percepteur_name)}</span></p>
+
+      <div class="grid grid-cols-2 gap-2 text-center mt-auto receipt-small">
+        <div>
+          <div class="sign-line border-b border-slate-400"></div>
+          <p class="text-slate-500">Sceau de l'école</p>
+        </div>
+        <div>
+          <div class="sign-line border-b border-slate-400"></div>
+          <p class="text-slate-500">Signature percepteur</p>
+        </div>
+      </div>
+    </div>
+  `
+}
+
+function render(data) {
+  const { school, class: cls, percepteur, percepteurs, all_classes, classes_count, date_from, date_to, payments, count } = data
+  const periode = date_from === date_to ? fmtDate(date_from) : `du ${fmtDate(date_from)} au ${fmtDate(date_to)}`
+  const who = data.single ? `Reçu N° ${payments[0].receipt_number} — ${payments[0].nom} ${payments[0].post_nom}`
+    : all_classes ? `Toutes mes classes (${classes_count || 0})`
+    : (percepteurs && percepteurs.length > 1) ? `${percepteurs.length} percepteurs (${percepteurs.map(p => p.name).join(', ')})`
+    : percepteur ? `Percepteur ${percepteur.name}` : `Classe ${cls.name}`
+  document.getElementById('summary-line').textContent = `${who} — ${periode} — ${count} reçu(s)`
+  if (!payments || payments.length === 0) {
+    document.getElementById('receipts-container').innerHTML = '<p class="text-center text-slate-500">Aucun paiement enregistré pour cette période</p>'
+    return
+  }
+
+  const cells = payments.map(p => renderOneReceipt(school, p, p.fee_amount, p.total_paid, p.balance))
+
+  // Regroupe les reçus par page de 6 (grille 2 colonnes x 3 lignes, format A4 portrait)
+  let html = ''
+  for (let i = 0; i < cells.length; i += RECEIPTS_PER_PAGE) {
+    const pageCells = cells.slice(i, i + RECEIPTS_PER_PAGE)
+    while (pageCells.length < RECEIPTS_PER_PAGE) {
+      pageCells.push('<div class="receipt-cell empty"></div>')
+    }
+    html += `<div class="receipts-page">${pageCells.join('')}</div>`
+  }
+  document.getElementById('receipts-container').innerHTML = html
+}
+
+loadReceipts()
+</script>
+</body>
+</html>

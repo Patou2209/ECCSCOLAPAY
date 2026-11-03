@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Espace Classe — ScolaPay</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+<link href="/static/css/style.css?v=10" rel="stylesheet">
+</head>
+<body class="bg-slate-100">
+<div id="toast-container"></div>
+<div id="impersonation-banner" class="hidden"></div>
+
+<div class="flex min-h-screen">
+  <aside class="app-sidebar w-64 bg-slate-900 text-white flex flex-col fixed inset-y-0 left-0 overflow-y-auto">
+    <div class="p-5 border-b border-white/10">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-teal-600 flex items-center justify-center"><i class="fas fa-chalkboard"></i></div>
+        <div>
+          <p id="class-name-label" class="font-bold text-sm truncate w-32">Classe</p>
+          <p id="school-name-label" class="text-xs text-slate-400 truncate w-32">École</p>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-3 space-y-1">
+      <div class="nav-link active" data-tab="overview"><i class="fas fa-house w-4"></i>Aperçu</div>
+      <div class="nav-link" data-tab="students"><i class="fas fa-user-graduate w-4"></i>Élèves</div>
+      <div class="nav-link" data-tab="perception"><i class="fas fa-hand-holding-dollar w-4"></i>Registre du jour</div>
+      <div class="nav-link" data-tab="debts"><i class="fas fa-triangle-exclamation w-4"></i>Dettes</div>
+      <div class="nav-link" data-tab="fees"><i class="fas fa-money-bill w-4"></i>Frais scolaires</div>
+    </nav>
+    <div class="p-3 border-t border-white/10">
+      <div id="user-info" class="text-xs text-slate-400 mb-2 px-2"></div>
+      <div class="nav-link" onclick="doLogout()"><i class="fas fa-right-from-bracket w-4"></i>Déconnexion</div>
+    </div>
+  </aside>
+
+  <main class="app-main flex-1 ml-64 p-8">
+
+    <!-- OVERVIEW -->
+    <section id="tab-overview">
+      <div class="mb-6"><h1 class="text-2xl font-bold text-slate-800">Aperçu de la classe</h1><p class="text-slate-500 text-sm">Consultation en lecture seule (les paiements sont enregistrés par le/les percepteur(s))</p></div>
+      <div id="overview-stats" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="section-card">
+          <h3 class="font-bold text-slate-800 mb-3"><i class="fas fa-chalkboard-user mr-2 text-blue-600"></i>Enseignant(s)</h3>
+          <div id="overview-teachers" class="space-y-1 text-sm"></div>
+        </div>
+        <div class="section-card">
+          <h3 class="font-bold text-slate-800 mb-3"><i class="fas fa-hand-holding-dollar mr-2 text-amber-600"></i>Percepteur(s)</h3>
+          <div id="overview-percepteurs" class="space-y-1 text-sm"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDENTS -->
+    <section id="tab-students" class="hidden">
+      <div class="section-header-flex flex items-center justify-between mb-6">
+        <div><h1 class="text-2xl font-bold text-slate-800">Élèves</h1><p class="text-slate-500 text-sm">Liste des élèves inscrits dans la classe</p></div>
+        <div class="flex gap-2">
+          <button onclick="exportStudentsExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2.5 rounded-lg text-sm font-semibold"><i class="fas fa-file-excel mr-1.5"></i>Excel</button>
+          <button onclick="exportStudentsPdf()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2.5 rounded-lg text-sm font-semibold"><i class="fas fa-file-pdf mr-1.5"></i>PDF</button>
+          <button onclick="showImportStudentsModal()" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2.5 rounded-lg text-sm font-semibold"><i class="fas fa-file-import mr-2"></i>Importer (Excel/CSV)</button>
+          <button onclick="showCreateStudentModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg text-sm font-semibold"><i class="fas fa-plus mr-2"></i>Ajouter un élève</button>
+        </div>
+      </div>
+      <div class="section-card overflow-x-auto">
+        <table class="data-table"><thead><tr><th>Nom</th><th>Post-nom</th><th>Prénom</th><th>Sexe</th><th>Catégorie</th><th>Actions</th></tr></thead><tbody id="students-tbody"></tbody></table>
+      </div>
+    </section>
+
+    <!-- PERCEPTION (lecture seule) -->
+    <section id="tab-perception" class="hidden">
+      <div class="mb-6"><h1 class="text-2xl font-bold text-slate-800">Registre de perception journalière</h1><p class="text-slate-500 text-sm">Consultation (lecture seule) des paiements du jour</p></div>
+      <div class="section-card mb-6">
+        <div class="flex flex-wrap gap-3 items-end">
+          <div><label class="text-xs font-medium text-slate-600 block mb-1">Trimestre</label><select id="perc-trimester" class="px-3 py-2 border rounded-lg text-sm w-44"></select></div>
+          <div><label class="text-xs font-medium text-slate-600 block mb-1">Jour</label><input type="date" id="perc-date" class="px-3 py-2 border rounded-lg text-sm"></div>
+          <button onclick="loadRegistre()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-search mr-2"></i>Afficher</button>
+          <button onclick="printAllReceipts()" class="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-print mr-2"></i>Imprimer les reçus (période)</button>
+          <button onclick="exportRegistreExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-excel mr-1.5"></i>Excel</button>
+          <button onclick="exportRegistrePdf()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-pdf mr-1.5"></i>PDF</button>
+        </div>
+      </div>
+      <div id="registre-summary" class="grid grid-cols-3 gap-4 mb-4"></div>
+      <div class="section-card overflow-x-auto">
+        <table class="data-table">
+          <thead><tr><th>N°</th><th>Nom et Post-nom</th><th>Catégorie</th><th>Montant du jour</th><th>Reçu</th></tr></thead>
+          <tbody id="registre-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DEBTS -->
+    <section id="tab-debts" class="hidden">
+      <div class="mb-6"><h1 class="text-2xl font-bold text-slate-800">Dettes de la classe</h1><p class="text-slate-500 text-sm">Élèves n'ayant pas soldé leurs frais</p></div>
+      <div class="section-card mb-6">
+        <div class="flex flex-wrap gap-3 items-end">
+          <div><label class="text-xs font-medium text-slate-600 block mb-1">Trimestre</label><select id="debt-trimester" class="px-3 py-2 border rounded-lg text-sm w-44"></select></div>
+          <button onclick="loadDebts()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-search mr-2"></i>Afficher</button>
+          <button onclick="exportDebtsExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-excel mr-1.5"></i>Excel</button>
+          <button onclick="exportDebtsPdf()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-pdf mr-1.5"></i>PDF</button>
+        </div>
+      </div>
+      <div id="debts-summary" class="grid grid-cols-2 gap-4 mb-4"></div>
+      <div class="section-card overflow-x-auto">
+        <table class="data-table"><thead><tr><th>Nom et Post-nom</th><th>Catégorie</th><th>Frais fixé</th><th>Payé</th><th>Dette restante</th></tr></thead><tbody id="debts-tbody"></tbody></table>
+      </div>
+    </section>
+
+    <!-- FEES -->
+    <section id="tab-fees" class="hidden">
+      <div class="mb-6"><h1 class="text-2xl font-bold text-slate-800">Frais scolaires</h1><p class="text-slate-500 text-sm">Montants fixés par l'administration pour cette classe</p></div>
+      <div class="section-card overflow-x-auto">
+        <table class="data-table"><thead><tr><th>Trimestre</th><th>Catégorie d'élève</th><th>Montant</th></tr></thead><tbody id="fees-tbody"></tbody></table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="/static/js/api.js?v=10"></script>
+<script src="/static/js/export.js?v=10"></script>
+<script src="/static/js/classe.js?v=10"></script>
+</body>
+</html>
